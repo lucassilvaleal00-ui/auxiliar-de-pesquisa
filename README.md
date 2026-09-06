@@ -1,0 +1,1 @@
+# auxiliar-de-pesquisa
