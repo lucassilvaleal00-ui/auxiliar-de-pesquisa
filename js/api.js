@@ -20,8 +20,20 @@
     const t = setTimeout(() => ctrl.abort(), TEMPO_LIMITE);
     try {
       const resp = await fetch(url, { signal: ctrl.signal });
-      if (!resp.ok) throw new Error('Resposta ' + resp.status);
+      if (!resp.ok) {
+        // As duas APIs explicam o motivo no corpo da resposta. Sem ler isso,
+        // o app só diria "falhou" e ninguém saberia o que aconteceu.
+        let detalhe = '';
+        try {
+          const corpo = await resp.json();
+          detalhe = (corpo.error && (corpo.error.message || corpo.error)) || '';
+        } catch { /* corpo não era JSON */ }
+        throw new Error(`HTTP ${resp.status}${detalhe ? ' — ' + detalhe : ''}`);
+      }
       return await resp.json();
+    } catch (e) {
+      if (e.name === 'AbortError') throw new Error('demorou demais para responder');
+      throw e;
     } finally {
       clearTimeout(t);
     }
@@ -68,7 +80,10 @@
   /* ----------------------------------------------------------- Google Books */
 
   async function googleBooks(termo) {
-    const url = 'https://www.googleapis.com/books/v1/volumes?maxResults=10&q=' +
+    // country=BR: sem esse parâmetro a API do Google responde 403 em parte das
+    // redes brasileiras ("unable to determine user location"). maxResults=20 é
+    // o teto por página; quase sempre é mais do que suficiente.
+    const url = 'https://www.googleapis.com/books/v1/volumes?maxResults=20&country=BR&q=' +
                 encodeURIComponent(termo);
     const dados = await buscarJson(url);
     return (dados.items || []).map(item => {
@@ -99,7 +114,7 @@
   async function openLibrary(termo) {
     const campos = 'key,title,subtitle,author_name,publisher,first_publish_year,' +
                    'publish_place,isbn,cover_i,number_of_pages_median';
-    const url = 'https://openlibrary.org/search.json?limit=10&fields=' + campos +
+    const url = 'https://openlibrary.org/search.json?limit=20&fields=' + campos +
                 '&q=' + encodeURIComponent(termo);
     const dados = await buscarJson(url);
     return (dados.docs || []).map(d => ({
@@ -123,27 +138,39 @@
   --------------------------------------------------------------------------*/
 
   async function buscar(termo) {
-    if (!termo || termo.trim().length < 3) return { itens: [], erros: [] };
+    if (!termo || termo.trim().length < 3) return { itens: [], erros: [], contagem: {} };
     const resultados = await Promise.allSettled([googleBooks(termo), openLibrary(termo)]);
     const itens = [];
     const erros = [];
+    const contagem = {};
     const nomes = ['Google Books', 'Open Library'];
     resultados.forEach((r, i) => {
-      if (r.status === 'fulfilled') itens.push(...r.value);
-      else erros.push(`${nomes[i]}: ${r.reason && r.reason.message ? r.reason.message : 'falhou'}`);
+      if (r.status === 'fulfilled') {
+        contagem[nomes[i]] = r.value.length;
+        itens.push(...r.value);
+      } else {
+        contagem[nomes[i]] = 0;
+        erros.push(`${nomes[i]}: ${r.reason && r.reason.message ? r.reason.message : 'falhou'}`);
+      }
     });
 
-    // Tira repetidos entre as duas fontes (mesmo ISBN ou mesmo título+autor)
+    // Tira apenas os REPETIDOS DE VERDADE.
+    // Cuidado aqui: edições diferentes do mesmo livro têm o mesmo título e o
+    // mesmo autor, e são resultados legítimos e diferentes — a edição de 2007
+    // não é a de 1985. Por isso a chave inclui ano e editora, e o ISBN só vale
+    // como chave quando existe nos dois lados.
     const vistos = new Set();
     const unicos = [];
     for (const it of itens) {
-      const chave = (it.isbn || (it.titulo + '|' + (it.autores[0]?.sobrenome || '')))
-        .toLowerCase().replace(/[^a-z0-9|]/g, '');
+      const chave = it.isbn
+        ? 'isbn:' + it.isbn.replace(/[^0-9Xx]/g, '')
+        : ['t:', it.titulo, it.autores[0]?.sobrenome || '', it.ano, it.editora]
+            .join('|').toLowerCase().replace(/\s+/g, ' ');
       if (vistos.has(chave)) continue;
       vistos.add(chave);
       unicos.push(it);
     }
-    return { itens: unicos, erros };
+    return { itens: unicos, erros, contagem };
   }
 
   /* ----------------------------------------------------------------- capa ---

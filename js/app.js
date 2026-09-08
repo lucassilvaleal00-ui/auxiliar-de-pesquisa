@@ -118,6 +118,19 @@ const autoresCurto = l => {
   return a.length > 1 ? p + ' e outros' : p;
 };
 
+/* ====================== LICENÇA: pode gravar ou não? ==================== */
+
+// Em modo leitura o cliente continua consultando e exportando tudo o que já
+// escreveu — só não cria nem altera (decisão P3). Os botões somem pelo CSS;
+// estas duas funções são a segunda tranca, no próprio código.
+const podeEditar = () => !estado.licenca || estado.licenca.estado !== 'leitura';
+
+function avisoLeitura() {
+  aviso(estado.licenca?.motivo
+    ? `${estado.licenca.motivo} O aplicativo está em modo leitura.`
+    : 'O aplicativo está em modo leitura.', 4200);
+}
+
 /* ============================== CATEGORIAS ============================== */
 
 async function desenharCategorias() {
@@ -153,6 +166,7 @@ $('#barra-categorias').addEventListener('click', e => {
 });
 
 function formCategoria(cat = null) {
+  if (!podeEditar()) return avisoLeitura();
   const c = cat || { titulo: '', tema: '' };
   abrirJanela(cat ? 'Editar categoria' : 'Nova categoria', `
     <label class="rot">Título <span class="obrig">*</span></label>
@@ -182,6 +196,7 @@ function formCategoria(cat = null) {
 }
 
 async function excluirCategoria(cat) {
+  if (!podeEditar()) return avisoLeitura();
   const n = await Categorias.contarObras(cat.id);
   const texto = n
     ? `A categoria <b>${esc(cat.titulo)}</b> será apagada. As <b>${n} obra(s)</b> que estão nela
@@ -305,6 +320,7 @@ $('#grade').addEventListener('click', e => {
 /* ---------------------------------------------------------- seleção múltipla */
 
 function entrarSelecao() {
+  if (!podeEditar()) return avisoLeitura();
   estado.modoSelecao = true;
   estado.selecao.clear();
   $('#barra-selecao').hidden = false;
@@ -338,6 +354,7 @@ $('#sel-todas').onclick = async () => {
 $('#sel-mover').onclick = () => moverSelecionadas();
 
 async function moverSelecionadas() {
+  if (!podeEditar()) return avisoLeitura();
   const cats = await Categorias.listar();
   abrirJanela(`Mover ${estado.selecao.size} obra(s)`, `
     <label class="rot">Escolha a categoria de destino</label>
@@ -453,6 +470,7 @@ function blocoCampo(nome, livro, obrigatorios) {
 /* ========================= FORMULÁRIO DA OBRA ========================== */
 
 function formObra(livro = null, rascunho = null) {
+  if (!podeEditar()) return avisoLeitura();
   // `rascunho` é usado quando voltamos da busca automática: o formulário
   // reabre inteiro, já com o que veio da API e com os botões religados.
   const l = rascunho || (livro ? JSON.parse(JSON.stringify(livro)) : Livros.novo());
@@ -595,15 +613,22 @@ function buscaAutomatica(aoEscolher, aoVoltar) {
     if (termo.length < 3) return aviso('Escreva pelo menos três letras.');
     $('#api-resultado').innerHTML = '<p class="dica">Procurando…</p>';
     try {
-      const { itens, erros } = await window.API.buscar(termo);
+      const { itens, erros, contagem } = await window.API.buscar(termo);
+
+      // Mostra quantos vieram de cada fonte e, se alguma falhou, o motivo exato.
+      const placar = Object.entries(contagem || {})
+        .map(([fonte, n]) => `${esc(fonte)}: ${n}`).join(' · ');
+      const cabecalho =
+        (erros.length ? `<div class="alerta"><b>Uma fonte não respondeu:</b><br>${esc(erros.join('<br>'))}</div>` : '') +
+        (placar ? `<p class="dica">${placar} — ${itens.length} resultado(s) depois de tirar os repetidos.</p>` : '');
+
       if (!itens.length) {
-        $('#api-resultado').innerHTML =
-          `<p class="dica">Nada encontrado. ${erros.length ? '<br>' + esc(erros.join(' · ')) : ''}
-           <br>Você pode cadastrar manualmente no formulário.</p>`;
+        $('#api-resultado').innerHTML = cabecalho +
+          `<p class="dica">Nada encontrado com esse termo.
+           Tente o título sem subtítulo, o ISBN, ou cadastre manualmente no formulário.</p>`;
         return;
       }
-      $('#api-resultado').innerHTML =
-        (erros.length ? `<div class="alerta">${esc(erros.join(' · '))}</div>` : '') +
+      $('#api-resultado').innerHTML = cabecalho +
         itens.map((it, i) => `
           <div class="res-item" data-i="${i}">
             <b>${esc(it.titulo)}</b>${it.subtitulo ? ': ' + esc(it.subtitulo) : ''}
@@ -756,6 +781,7 @@ $('#busca-citacoes').addEventListener('input', () => {
 /* ========================= FORMULÁRIO DA CITAÇÃO ======================= */
 
 function formCitacao(livro, citacao = null) {
+  if (!podeEditar()) return avisoLeitura();
   const c = citacao ? { ...citacao } : Citacoes.novo(livro.id);
   const ehBiblia = livro.tipo === 'biblia';
 
@@ -1006,7 +1032,22 @@ $('#btn-config').onclick = async () => {
   ]);
   const ultimo = await Config.ler('ultima_exportacao', null);
 
+  const lic = estado.licenca || {};
+  const blocoConta = (Auth.LIGADO && lic.estado && lic.estado !== 'aberto') ? `
+    <h3>Sua conta</h3>
+    <div class="conta-linha">
+      <div class="quem">
+        <b>${esc(lic.nome || lic.email || 'Conectado')}</b>
+        <small>${esc(lic.email || '')}</small>
+        <small>${esc(Auth.descreverLicenca(lic))}${lic.online === false ? ' · sem internet agora' : ''}</small>
+      </div>
+      <button class="btn pequeno" data-sair>Sair</button>
+    </div>
+    ${lic.admin ? '<a class="btn pequeno" href="painel/" style="display:inline-block;text-decoration:none">Abrir o painel de usuários</a>' : ''}
+  ` : '';
+
   abrirJanela('Configurações', `
+    ${blocoConta}
     <h3>Sua biblioteca</h3>
     <p class="dica">${nC} categoria(s) · ${nL} obra(s) · ${nCit} citação(ões)
       ${esp ? `<br>Espaço usado: ${(esp.usado / 1048576).toFixed(1)} MB de ${(esp.total / 1048576).toFixed(0)} MB disponíveis` : ''}
@@ -1045,6 +1086,15 @@ $('#btn-config').onclick = async () => {
   };
 
   $('[data-fechar4]').onclick = fecharJanela;
+  const btSair = $('[data-sair]');
+  if (btSair) btSair.onclick = async () => {
+    if (!await confirmar('Sair da conta',
+      'Sua biblioteca <b>continua guardada neste aparelho</b> — nada será apagado. ' +
+      'Você vai precisar do e-mail e da senha para entrar de novo.', 'Sair', false)) return;
+    Auth.sair();
+    fecharJanela();
+    location.reload();
+  };
   $('[data-exportar]').onclick = exportarArquivo;
   $('#arq-importar').onchange = e => importarArquivo(e.target.files[0]);
   const bp = $('[data-persistir]');
@@ -1082,6 +1132,7 @@ async function exportarArquivo() {
 
 async function importarArquivo(arquivo) {
   if (!arquivo) return;
+  if (!podeEditar()) return avisoLeitura();
   let dados;
   try {
     dados = JSON.parse(await arquivo.text());
@@ -1112,6 +1163,121 @@ async function importarArquivo(arquivo) {
   };
 }
 
+/* ============================ LOGIN E LICENÇA =========================== */
+
+const Auth = window.Auth;
+
+function painelLogin(qual) {
+  $$('#tela-login [data-painel]').forEach(p => { p.hidden = p.dataset.painel !== qual; });
+  $('#login-erro').hidden = true;
+  const foco = { entrar: '#login-email', primeiro: '#pa-email', esqueci: '#es-email' }[qual];
+  const el = $(foco); if (el) el.focus();
+}
+
+function erroLogin(msg) {
+  const el = $('#login-erro');
+  el.textContent = msg;
+  el.hidden = false;
+}
+
+$$('#tela-login [data-ir]').forEach(b => {
+  b.onclick = () => painelLogin(b.dataset.ir);
+});
+
+// Enter em qualquer campo aciona o botão principal daquele painel.
+$('#tela-login').addEventListener('keydown', e => {
+  if (e.key !== 'Enter') return;
+  const painel = e.target.closest('[data-painel]');
+  if (painel) painel.querySelector('.btn.primario')?.click();
+});
+
+async function comEspera(botao, fn) {
+  const texto = botao.textContent;
+  botao.disabled = true; botao.textContent = 'Aguarde…';
+  try { await fn(); }
+  catch (e) { erroLogin(e.message || 'Não consegui completar.'); }
+  finally { botao.disabled = false; botao.textContent = texto; }
+}
+
+$('#bt-entrar').onclick = function () {
+  comEspera(this, async () => {
+    const email = $('#login-email').value.trim();
+    const senha = $('#login-senha').value;
+    if (!email || !senha) throw new Error('Preencha o e-mail e a senha.');
+    await Auth.entrar(email, senha, $('#login-permanecer').checked);
+    await entrarNoApp();
+  });
+};
+
+$('#bt-primeiro').onclick = function () {
+  comEspera(this, async () => {
+    const email = $('#pa-email').value.trim();
+    const codigo = $('#pa-codigo').value.trim();
+    const senha = $('#pa-senha').value;
+    if (!email || !codigo) throw new Error('Preencha o e-mail e o código.');
+    if (senha.length < 6) throw new Error('A senha precisa ter ao menos 6 caracteres.');
+    if (senha !== $('#pa-senha2').value) throw new Error('As duas senhas não são iguais.');
+    await Auth.primeiroAcesso(email, codigo, senha);
+    await entrarNoApp();
+    aviso('Bem-vindo! Sua senha foi criada.', 4000);
+  });
+};
+
+$('#bt-esqueci').onclick = function () {
+  comEspera(this, async () => {
+    const email = $('#es-email').value.trim();
+    if (!email) throw new Error('Escreva o seu e-mail.');
+    await Auth.recuperarSenha(email);
+    painelLogin('entrar');
+    aviso('Se este e-mail estiver cadastrado, o link de redefinição chegou na caixa de entrada.', 5000);
+  });
+};
+
+/**
+ * Decide o que mostrar quando o aplicativo abre (ou depois de entrar).
+ * 'aberto'    → login não configurado: funciona como na Fase 1
+ * 'sem_conta' → tela de login
+ * 'ok'        → aplicativo completo
+ * 'leitura'   → aplicativo completo para consultar, sem gravar (decisão P3)
+ */
+async function entrarNoApp() {
+  const lic = await Auth.situacao();
+  estado.licenca = lic;
+
+  if (lic.estado === 'sem_conta') {
+    mostrarTela('tela-login');
+    painelLogin('entrar');
+    $('#faixa-licenca').hidden = true;
+    return false;
+  }
+
+  document.body.classList.toggle('so-leitura', lic.estado === 'leitura');
+  desenharFaixaLicenca(lic);
+  mostrarTela('tela-inicio');
+  estado.telaAtual = 'inicio';
+  await recarregar();
+  return true;
+}
+
+function desenharFaixaLicenca(lic) {
+  const faixa = $('#faixa-licenca');
+  if (lic.estado === 'leitura') {
+    faixa.innerHTML = `<b>Modo leitura.</b> ${esc(lic.motivo || '')}
+      Suas citações continuam aqui e podem ser exportadas pelo menu.`;
+    faixa.hidden = false;
+    return;
+  }
+  // aviso amigável quando falta pouco para vencer
+  const dias = lic.expira_em
+    ? Math.ceil((new Date(lic.expira_em) - Date.now()) / 86400000) : null;
+  if (dias !== null && dias <= 7) {
+    faixa.innerHTML = `Sua licença vence em <b>${dias} dia(s)</b>.`;
+    faixa.hidden = false;
+  } else {
+    faixa.hidden = true;
+  }
+}
+
 /* ================================ TEMA ================================= */
 
 function aplicarTema() {
@@ -1132,7 +1298,7 @@ async function iniciar() {
     pedirPersistencia().catch(() => {});
   }
 
-  await recarregar();
+  await entrarNoApp();
 
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js').catch(e => console.warn('Service worker:', e));
