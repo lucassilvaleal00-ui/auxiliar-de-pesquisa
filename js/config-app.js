@@ -18,8 +18,8 @@
    ========================================================================== */
 
 window.CONFIG = {
-  SUPABASE_URL: '',
-  SUPABASE_ANON_KEY: '',
+  SUPABASE_URL: 'https://vyovyiltgdmjtwjijrvp.supabase.co/rest/v1/',
+  SUPABASE_ANON_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZ5b3Z5aWx0Z2RtanR3amlqcnZwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg5MDI3OTksImV4cCI6MjEwNDQ3ODc5OX0.OdW68hk9JMpvn2bSfFeVIIG7jX2dhW0KAdUUkiYIvvw',
 
   // Quantos dias o aplicativo pode ficar sem internet antes de exigir uma
   // nova validação da licença (decisão P4).
