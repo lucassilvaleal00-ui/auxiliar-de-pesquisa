@@ -14,6 +14,56 @@
 </head>
 <body>
 
+<!-- ====================== TELA DE LOGIN ====================== -->
+<div id="tela-login" class="tela" hidden>
+  <div class="login-caixa">
+    <div class="login-marca">Auxiliar de Pesquisa</div>
+
+    <!-- entrar -->
+    <div data-painel="entrar">
+      <label class="rot">E-mail</label>
+      <input type="email" id="login-email" autocomplete="username" inputmode="email">
+      <label class="rot">Senha</label>
+      <input type="password" id="login-senha" autocomplete="current-password">
+      <label class="marca" style="margin-top:10px">
+        <input type="checkbox" id="login-permanecer" checked> Permanecer conectado
+      </label>
+      <button class="btn primario largo" id="bt-entrar">Entrar</button>
+      <div class="login-links">
+        <button class="elo" data-ir="primeiro">Primeiro acesso</button>
+        <button class="elo" data-ir="esqueci">Esqueci minha senha</button>
+      </div>
+    </div>
+
+    <!-- primeiro acesso -->
+    <div data-painel="primeiro" hidden>
+      <p class="dica">Use o código de 6 caracteres que você recebeu para criar a sua senha.</p>
+      <label class="rot">E-mail</label>
+      <input type="email" id="pa-email" autocomplete="username" inputmode="email">
+      <label class="rot">Código de acesso</label>
+      <input type="text" id="pa-codigo" maxlength="6" autocapitalize="characters"
+             autocomplete="one-time-code" style="text-transform:uppercase;letter-spacing:3px">
+      <label class="rot">Crie a sua senha</label>
+      <input type="password" id="pa-senha" autocomplete="new-password">
+      <label class="rot">Repita a senha</label>
+      <input type="password" id="pa-senha2" autocomplete="new-password">
+      <button class="btn primario largo" id="bt-primeiro">Criar senha e entrar</button>
+      <div class="login-links"><button class="elo" data-ir="entrar">Voltar para o login</button></div>
+    </div>
+
+    <!-- esqueci a senha -->
+    <div data-painel="esqueci" hidden>
+      <p class="dica">Enviamos um link de redefinição para o seu e-mail.</p>
+      <label class="rot">E-mail</label>
+      <input type="email" id="es-email" autocomplete="username" inputmode="email">
+      <button class="btn primario largo" id="bt-esqueci">Enviar link</button>
+      <div class="login-links"><button class="elo" data-ir="entrar">Voltar para o login</button></div>
+    </div>
+
+    <div id="login-erro" class="alerta" hidden></div>
+  </div>
+</div>
+
 <!-- ====================== TELA INICIAL ====================== -->
 <div id="tela-inicio" class="tela">
 
@@ -97,12 +147,15 @@
   </div>
 </div>
 
+<div id="faixa-licenca" class="faixa-licenca" hidden></div>
 <div id="aviso" class="aviso" hidden></div>
 
 <script src="vendor/dexie.min.js"></script>
+<script src="js/config-app.js"></script>
 <script src="js/db.js"></script>
 <script src="js/referencias.js"></script>
 <script src="js/api.js"></script>
+<script src="js/auth.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>

@@ -276,3 +276,58 @@ mark { background: #ffe08a; color: #000; border-radius: 3px; padding: 0 2px; }
   .btn-icone .rotulo { display: inline; }
   main { padding: 18px 20px 90px; }
 }
+
+/* ======================================================================
+   Fase 3 — login, licença e modo leitura
+   ====================================================================== */
+
+#tela-login { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.login-caixa {
+  width: 100%; max-width: 380px; background: var(--papel); border: 1px solid var(--linha);
+  border-radius: 16px; padding: 22px 20px 18px; box-shadow: var(--sombra);
+}
+.login-marca {
+  font-size: 19px; font-weight: 700; color: var(--marca); text-align: center;
+  margin-bottom: 6px;
+}
+.login-caixa .rot { margin-top: 12px; }
+.btn.largo { width: 100%; margin-top: 16px; padding: 12px; font-size: 15px; }
+.login-links {
+  display: flex; justify-content: space-between; gap: 10px; margin-top: 14px; flex-wrap: wrap;
+}
+.elo {
+  background: none; border: 0; color: var(--marca); font-size: 13.5px; cursor: pointer;
+  padding: 4px 0; font-family: inherit; text-decoration: underline;
+}
+#login-erro { margin-top: 14px; }
+
+/* faixa fixa embaixo, avisando o estado da licença */
+.faixa-licenca {
+  position: fixed; left: 0; right: 0; bottom: 0; z-index: 60;
+  background: var(--alerta-fundo); color: var(--alerta);
+  border-top: 1px solid var(--alerta);
+  padding: 8px 14px; padding-bottom: max(8px, env(safe-area-inset-bottom));
+  font-size: 13px; text-align: center;
+}
+.faixa-licenca b { font-weight: 700; }
+
+/* modo leitura: some tudo o que grava dados */
+body.so-leitura .cartao.novo,
+body.so-leitura .cat.nova,
+body.so-leitura [data-nova-citacao],
+body.so-leitura [data-nova2],
+body.so-leitura [data-editar-obra],
+body.so-leitura [data-excluir-obra],
+body.so-leitura [data-editar-cat],
+body.so-leitura [data-excluir-cat],
+body.so-leitura [data-selecionar],
+body.so-leitura .citacao .acoes { display: none !important; }
+
+/* conta, no menu */
+.conta-linha {
+  display: flex; justify-content: space-between; align-items: center; gap: 10px;
+  border: 1px solid var(--linha); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px;
+}
+.conta-linha .quem { min-width: 0; }
+.conta-linha .quem b { display: block; font-size: 14px; }
+.conta-linha .quem small { color: var(--tinta-fraca); font-size: 12.5px; }

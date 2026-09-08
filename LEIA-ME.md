@@ -1,11 +1,17 @@
-# Auxiliar de Pesquisa — Fase 1
+# Auxiliar de Pesquisa — Fases 1 e 3
 
-Aplicativo local (PWA) de biblioteca de citações com geração automática de
-referências em Turabian (9ª ed.) e ABNT (NBR 6023). Sem login e sem servidor:
-tudo é gravado no aparelho do usuário, via IndexedDB.
+Aplicativo (PWA) de biblioteca de citações com geração automática de
+referências em Turabian (9ª ed.) e ABNT (NBR 6023). As obras e citações ficam
+sempre no aparelho do usuário, via IndexedDB — nunca em servidor.
 
-**Leia o `COMO_COMECAR.pdf`** — ele explica o projeto inteiro, com um capítulo
-detalhado sobre o banco de dados local.
+Leia os dois guias:
+- **`COMO_COMECAR.pdf`** — o projeto inteiro, com um capítulo detalhado sobre o
+  banco de dados local (IndexedDB).
+- **`COMO_LIGAR_O_LOGIN.pdf`** — passo a passo do Supabase: contas, licenças e
+  painel de usuários.
+
+Enquanto `js/config-app.js` estiver vazio, o app roda **sem login**, como na
+Fase 1. Preencheu, o login entra em vigor.
 
 ## Rodar
 
@@ -29,7 +35,11 @@ Repositório público no GitHub → Settings → Pages → main / (root).
     js/db.js         banco local: tabelas, CRUD, exportar/importar
     js/referencias.js 5 formatos × 6 tipos de obra
     js/api.js        Google Books + Open Library
+    js/auth.js       login e licença (Supabase)
+    js/config-app.js as duas chaves do Supabase (você preenche)
     js/app.js        telas e comportamento
+    painel/          painel de usuários (só administrador)
+    supabase/        schema.sql + Edge Function admin (colar no Supabase)
     vendor/          Dexie 4.4.5 (local, para funcionar offline)
     teste/           testes automáticos (Playwright)
 
@@ -37,4 +47,5 @@ Repositório público no GitHub → Settings → Pages → main / (root).
 
     npm install playwright
     node teste/teste.js       # 32 verificações na interface
-    node teste/teste-api.js   # 19 verificações na busca automática
+    node teste/teste-api.js   # 23 verificações na busca automática
+    node teste/teste-login.js # 31 verificações em login, licença e painel
