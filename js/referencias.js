@@ -125,7 +125,10 @@
       const significativas = escolhidas.filter(x => !menores.includes(x.toLowerCase()));
       if (significativas.length >= 4) break;
     }
-    return escolhidas.join(' ');
+    // Sem a limpeza abaixo, um título como "Obadias, Jonas, Miquéias, Naum,
+    // Habacuque e Sofonias" era cortado logo depois de uma vírgula e a nota
+    // saía com vírgula dobrada: "…Miquéias, Naum,, 213."
+    return escolhidas.join(' ').replace(/[\s,;:.\-–—]+$/, '');
   }
 
   const tituloCheio = l => [l.titulo, l.subtitulo].filter(x => (x || '').trim()).join(': ');
@@ -267,6 +270,7 @@
         const p = [pt(autores ? esc(autores) : falta('autor')), pt(it(tituloCheio(l)))];
         if (trad) p.push(pt(trad));
         if (ed) p.push(pt(ed));
+        if ((l.volume || '').trim()) p.push(`Vol. ${esc(l.volume)}.`);
         p.push(pt(publicacaoTurabian(l)));
         return p.join(' ');
       }
@@ -323,8 +327,9 @@
     switch (l.tipo) {
       case 'livro': {
         const tit = l.subtitulo ? `${ng(l.titulo)}: ${esc(l.subtitulo)}` : ng(l.titulo);
+        const vol = (l.volume || '').trim() ? ` v. ${esc(l.volume)}.` : '';
         return `${pt(autores ? esc(autores) : falta('autor'))} ${pt(tit)} ${trad}` +
-               `${ed ? ed + ' ' : ''}${esc(local)}: ${editora ? esc(editora) : '[s.n.]'}, ${esc(ano)}.`;
+               `${ed ? ed + ' ' : ''}${esc(local)}: ${editora ? esc(editora) : '[s.n.]'}, ${esc(ano)}.${vol}`;
       }
       case 'capitulo': {
         const orgs = limpar(l.organizadores);

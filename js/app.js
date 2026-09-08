@@ -52,16 +52,26 @@ function abrirJanela(titulo, corpoHTML, rodapeHTML = '', fechou = null) {
   $('#fundo').hidden = false;
   document.body.style.overflow = 'hidden';
   aoFechar = fechou;
+  empilhar({ modal: true });
   const primeiro = $('#janela-corpo input, #janela-corpo textarea, #janela-corpo select');
   if (primeiro && window.matchMedia('(min-width: 700px)').matches) primeiro.focus();
 }
 
-function fecharJanela() {
+function fecharJanela(porHistorico) {
+  // Atenção: esta função é usada direto como tratador de clique em vários
+  // botões (`onclick = fecharJanela`), e nesse caso o navegador passa o
+  // evento do clique como primeiro argumento. Por isso a comparação é
+  // estrita: só o valor `true` significa "veio do histórico".
+  const doHistorico = porHistorico === true;
+  if ($('#fundo').hidden) return;
   $('#fundo').hidden = true;
   $('#janela-corpo').innerHTML = '';
   $('#janela-rodape').innerHTML = '';
   document.body.style.overflow = '';
   if (aoFechar) { const f = aoFechar; aoFechar = null; f(); }
+  // fechando pelo X ou pelo botão: tira a janela do histórico também, para o
+  // "voltar" do navegador não gastar um toque à toa
+  if (!doHistorico && history.state && history.state.modal) history.back();
 }
 
 $('#janela-fechar').addEventListener('click', fecharJanela);
@@ -87,9 +97,46 @@ function mostrarTela(id) {
   window.scrollTo(0, 0);
 }
 
-$$('[data-voltar]').forEach(b => b.addEventListener('click', () => {
-  mostrarTela('tela-inicio');
-}));
+/* -------------------- BOTÃO VOLTAR DO NAVEGADOR ------------------------
+   Num aplicativo de tela única, o navegador não sabe que trocamos de tela —
+   por isso o "voltar" saía do app (e no Android o gesto de voltar fechava
+   tudo). Aqui cada tela e cada janela entram no histórico, e o voltar passa
+   a fazer o esperado: fecha a janela, ou volta para a biblioteca.
+------------------------------------------------------------------------- */
+
+let profundidade = 0;
+
+function empilhar(estadoNav) {
+  try { history.pushState(estadoNav, ''); profundidade++; } catch { /* nada */ }
+}
+
+function voltarTela() {
+  if (profundidade > 0) history.back();
+  else { mostrarTela('tela-inicio'); estado.telaAtual = 'inicio'; }
+}
+
+window.addEventListener('popstate', e => {
+  profundidade = Math.max(0, profundidade - 1);
+  const s = e.state || {};
+
+  // janela aberta: o voltar apenas a fecha
+  if (!$('#fundo').hidden) fecharJanela(true);
+
+  if (s.tela === 'obra' && s.id) {
+    if (!(estado.telaAtual === 'obra' && obraAtual && obraAtual.id === s.id)) telaObra(s.id, true);
+    return;
+  }
+  if (s.tela === 'busca') {
+    if (estado.telaAtual !== 'busca') abrirBuscaAvancada(true);
+    return;
+  }
+  if (estado.telaAtual !== 'inicio') {
+    mostrarTela('tela-inicio');
+    estado.telaAtual = 'inicio';
+  }
+});
+
+$$('[data-voltar]').forEach(b => b.addEventListener('click', voltarTela));
 
 /* ============================ CAPAS DAS OBRAS =========================== */
 
@@ -666,11 +713,15 @@ function buscaAutomatica(aoEscolher, aoVoltar) {
 
 let obraAtual = null;
 
-async function telaObra(id) {
+async function telaObra(id, semHistorico = false) {
   const l = await Livros.obter(id);
   if (!l) return aviso('Obra não encontrada.');
   obraAtual = l;
   estado.telaAtual = 'obra';
+  // Redesenhar a mesma obra (depois de salvar, por exemplo) não pode empilhar
+  // outra entrada — senão o "voltar" ficaria preso repetindo a mesma tela.
+  const jaEstava = history.state && history.state.tela === 'obra' && history.state.id === id;
+  if (!semHistorico && !jaEstava) empilhar({ tela: 'obra', id });
   liberarCapas();
   mostrarTela('tela-obra');
   $('#busca-citacoes').value = '';
@@ -752,7 +803,7 @@ async function desenharCitacoes() {
     };
     div.querySelector('.texto').onclick = async () => {
       const c = await Citacoes.obter(id);
-      janelaReferencias(l, c);
+      janelaReferencias(l, c, c);
     };
   });
 }
@@ -878,14 +929,61 @@ function ligarBotoesReferencia(raiz, livro, dados) {
   });
 }
 
-function janelaReferencias(livro, dados) {
-  abrirJanela('Referências desta obra',
+/**
+ * `citacao` é opcional: quando vem, o texto dela aparece em cima das
+ * referências, em destaque, com os mesmos botões de editar e copiar — foi o
+ * pedido do Lucas, e faz sentido: na hora de escrever, o que se cola primeiro
+ * é a frase, e a referência vem logo atrás.
+ */
+function janelaReferencias(livro, dados, citacao = null) {
+  const cabecalho = citacao ? `
+    <div class="ref-bloco citacao-bloco">
+      <div class="ref-topo">
+        <span>Texto da citação${dados.pagina ? ' · p. ' + esc(dados.pagina) : ''}</span>
+        <span class="bts">
+          <button class="btn pequeno" data-editar-cit>Editar</button>
+          <button class="btn pequeno primario" data-copiar-cit>Copiar</button>
+        </span>
+      </div>
+      <div class="ref-texto" id="texto-citacao">${esc(citacao.texto)}</div>
+      ${citacao.capitulo ? `<div class="ref-rodape">${esc(citacao.capitulo)}</div>` : ''}
+    </div>` : '';
+
+  abrirJanela(citacao ? 'Citação e referências' : 'Referências desta obra',
     `<p class="dica">${esc(livro.titulo)}${dados.pagina ? ' · p. ' + esc(dados.pagina) : ''}</p>
+     ${cabecalho}
      <div id="refs"></div>`,
     `<button class="btn" data-fechar2>Fechar</button>`);
+
   $('#refs').innerHTML = blocosReferencia(livro, dados, true);
   ligarBotoesReferencia($('#refs'), livro, dados);
   $('[data-fechar2]').onclick = fecharJanela;
+
+  if (citacao) {
+    const campo = $('#texto-citacao');
+    $('[data-copiar-cit]').onclick = () => copiarFormatado(campo.innerHTML);
+    const bt = $('[data-editar-cit]');
+    bt.onclick = async () => {
+      const editando = campo.getAttribute('contenteditable') === 'true';
+      if (!editando) {
+        if (!podeEditar()) return avisoLeitura();
+        campo.setAttribute('contenteditable', 'true');
+        bt.textContent = 'Salvar';
+        campo.focus();
+        return;
+      }
+      // Editar aqui altera a citação de verdade, não só o que está na tela.
+      campo.setAttribute('contenteditable', 'false');
+      bt.textContent = 'Editar';
+      const novo = campo.textContent.trim();
+      if (novo && novo !== citacao.texto) {
+        citacao.texto = novo;
+        await Citacoes.salvar(citacao);
+        desenharCitacoes();
+        aviso('Citação atualizada.');
+      }
+    };
+  }
 }
 
 /* ------------------------------------------------------------- copiar ----
@@ -959,9 +1057,12 @@ async function telaBibliografia() {
 
 /* ========================= PESQUISA AVANÇADA (P15) ===================== */
 
-$('#btn-avancada').onclick = async () => {
+$('#btn-avancada').onclick = () => abrirBuscaAvancada();
+
+async function abrirBuscaAvancada(semHistorico = false) {
   estado.telaAtual = 'busca';
   mostrarTela('tela-busca');
+  if (!semHistorico) empilhar({ tela: 'busca' });
   const cats = await Categorias.listar();
   $('#filtro-tipo').innerHTML = '<option value="">Todos os tipos</option>' +
     R.TIPOS.map(t => `<option value="${t.id}">${t.nome}</option>`).join('');
@@ -970,7 +1071,7 @@ $('#btn-avancada').onclick = async () => {
     cats.map(c => `<option value="${c.id}">${esc(c.titulo)}</option>`).join('');
   $('#busca-avancada').focus();
   buscarAvancado();
-};
+}
 
 ['#busca-avancada', '#filtro-tipo', '#filtro-categoria', '#filtro-incompletas'].forEach(sel => {
   $(sel).addEventListener('input', () => {
@@ -1021,6 +1122,35 @@ async function buscarAvancado() {
   });
 }
 
+/* ============================== MINHA CONTA ============================= */
+
+function janelaConta() {
+  const lic = estado.licenca || {};
+  abrirJanela('Minha conta', `
+    <div class="conta-linha">
+      <div class="quem">
+        <b>${esc(lic.nome || lic.email || 'Conectado')}</b>
+        <small>${esc(lic.email || '')}</small>
+      </div>
+    </div>
+    <label class="rot">Licença</label>
+    <p style="margin-top:2px">${esc(Auth.descreverLicenca(lic)) || '—'}
+      ${lic.online === false ? '<br><span class="dica">conferida da última vez sem internet</span>' : ''}</p>
+    ${lic.estado === 'leitura' ? `<div class="alerta">${esc(lic.motivo || '')} O aplicativo está em modo leitura.</div>` : ''}
+    ${lic.admin ? '<a class="btn" href="painel/" style="display:block;text-align:center;text-decoration:none;margin-top:14px">Painel de usuários</a>' : ''}
+  `, `<button class="btn" data-fechar-conta>Fechar</button>
+      <button class="btn perigo" data-sair>Sair da conta</button>`);
+
+  $('[data-fechar-conta]').onclick = fecharJanela;
+  $('[data-sair]').onclick = async () => {
+    if (!await confirmar('Sair da conta',
+      'Sua biblioteca <b>continua guardada neste aparelho</b> — nada será apagado. ' +
+      'Você vai precisar do e-mail e da senha para entrar de novo.', 'Sair', false)) return;
+    Auth.sair();
+    location.reload();
+  };
+}
+
 /* ============================= CONFIGURAÇÕES =========================== */
 
 $('#btn-config').onclick = async () => {
@@ -1032,22 +1162,7 @@ $('#btn-config').onclick = async () => {
   ]);
   const ultimo = await Config.ler('ultima_exportacao', null);
 
-  const lic = estado.licenca || {};
-  const blocoConta = (Auth.LIGADO && lic.estado && lic.estado !== 'aberto') ? `
-    <h3>Sua conta</h3>
-    <div class="conta-linha">
-      <div class="quem">
-        <b>${esc(lic.nome || lic.email || 'Conectado')}</b>
-        <small>${esc(lic.email || '')}</small>
-        <small>${esc(Auth.descreverLicenca(lic))}${lic.online === false ? ' · sem internet agora' : ''}</small>
-      </div>
-      <button class="btn pequeno" data-sair>Sair</button>
-    </div>
-    ${lic.admin ? '<a class="btn pequeno" href="painel/" style="display:inline-block;text-decoration:none">Abrir o painel de usuários</a>' : ''}
-  ` : '';
-
   abrirJanela('Configurações', `
-    ${blocoConta}
     <h3>Sua biblioteca</h3>
     <p class="dica">${nC} categoria(s) · ${nL} obra(s) · ${nCit} citação(ões)
       ${esp ? `<br>Espaço usado: ${(esp.usado / 1048576).toFixed(1)} MB de ${(esp.total / 1048576).toFixed(0)} MB disponíveis` : ''}
@@ -1086,15 +1201,6 @@ $('#btn-config').onclick = async () => {
   };
 
   $('[data-fechar4]').onclick = fecharJanela;
-  const btSair = $('[data-sair]');
-  if (btSair) btSair.onclick = async () => {
-    if (!await confirmar('Sair da conta',
-      'Sua biblioteca <b>continua guardada neste aparelho</b> — nada será apagado. ' +
-      'Você vai precisar do e-mail e da senha para entrar de novo.', 'Sair', false)) return;
-    Auth.sair();
-    fecharJanela();
-    location.reload();
-  };
   $('[data-exportar]').onclick = exportarArquivo;
   $('#arq-importar').onchange = e => importarArquivo(e.target.files[0]);
   const bp = $('[data-persistir]');
@@ -1259,7 +1365,12 @@ async function entrarNoApp() {
   return true;
 }
 
+$('#btn-conta').onclick = janelaConta;
+
 function desenharFaixaLicenca(lic) {
+  // o botão da conta só existe quando há login configurado
+  $('#btn-conta').hidden = !(Auth.LIGADO && lic.estado && lic.estado !== 'aberto');
+
   const faixa = $('#faixa-licenca');
   if (lic.estado === 'leitura') {
     faixa.innerHTML = `<b>Modo leitura.</b> ${esc(lic.motivo || '')}
@@ -1290,6 +1401,7 @@ function aplicarTema() {
 
 async function iniciar() {
   aplicarTema();
+  try { history.replaceState({ tela: 'inicio' }, ''); } catch { /* nada */ }
   estado.telaAtual = 'inicio';
 
   // pede o armazenamento persistente uma vez só
