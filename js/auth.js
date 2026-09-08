@@ -12,7 +12,32 @@
 (function () {
 
 const C = window.CONFIG || {};
-const LIGADO = !!(C.SUPABASE_URL && C.SUPABASE_ANON_KEY);
+
+/**
+ * Limpa o endereço do Supabase antes de usar.
+ *
+ * Na tela "Project Settings → API" aparecem vários endereços parecidos, e é
+ * muito fácil copiar o errado. O que vale é o "Project URL":
+ *
+ *      certo:  https://xxxxxxxx.supabase.co
+ *      errado: https://xxxxxxxx.supabase.co/rest/v1/    (endereço da Data API)
+ *      errado: https://xxxxxxxx.supabase.co/            (barra sobrando)
+ *
+ * Com o endereço errado, o Supabase responde "Invalid path specified in
+ * request URL" — que não explica nada a quem está configurando. Em vez de
+ * deixar o erro acontecer, arrumamos o endereço aqui.
+ */
+function limparBase(url) {
+  return String(url || '')
+    .trim()
+    .replace(/\s+/g, '')
+    .replace(/\/+$/, '')                                   // barras no fim
+    .replace(/\/(rest|auth|functions|storage)\/v\d+$/, ''); // caminho colado junto
+}
+
+const BASE = limparBase(C.SUPABASE_URL);
+const ANON = String(C.SUPABASE_ANON_KEY || '').trim();
+const LIGADO = !!(BASE && ANON);
 
 const CHAVE_SESSAO  = 'ap_sessao';
 const CHAVE_LICENCA = 'ap_licenca';
@@ -59,11 +84,11 @@ function lerLicenca() {
 /* ------------------------------------------------------------ chamadas */
 
 async function chamar(caminho, opcoes = {}, token = null) {
-  const resp = await fetch(`${C.SUPABASE_URL}${caminho}`, {
+  const resp = await fetch(`${BASE}${caminho}`, {
     ...opcoes,
     headers: {
-      apikey: C.SUPABASE_ANON_KEY,
-      Authorization: `Bearer ${token || C.SUPABASE_ANON_KEY}`,
+      apikey: ANON,
+      Authorization: `Bearer ${token || ANON}`,
       'Content-Type': 'application/json',
       ...(opcoes.headers || {})
     }
@@ -88,6 +113,12 @@ function traduzir(msg) {
   if (m.includes('rate limit') || m.includes('too many'))
     return 'Muitas tentativas seguidas. Espere alguns minutos e tente de novo.';
   if (m.includes('failed to fetch'))           return 'Sem conexão com a internet.';
+  if (m.includes('invalid path'))
+    return 'O endereço do Supabase está errado no arquivo js/config-app.js. ' +
+           'Use o "Project URL" (algo como https://xxxxxxxx.supabase.co), sem /rest/v1 e sem barra no fim.';
+  if (m.includes('invalid api key') || m.includes('no api key'))
+    return 'A chave do Supabase está errada no arquivo js/config-app.js. ' +
+           'Use a chave "anon public".';
   return msg;
 }
 
@@ -224,7 +255,7 @@ function descreverLicenca(lic) {
 }
 
 window.Auth = {
-  LIGADO, PLANOS,
+  LIGADO, PLANOS, BASE,
   entrar, sair, primeiroAcesso, recuperarSenha,
   situacao, descreverLicenca,
   sessao: lerSessao, renovarSePreciso, chamar, traduzir
