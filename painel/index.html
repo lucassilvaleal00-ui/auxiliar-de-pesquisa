@@ -41,17 +41,14 @@
 </head>
 <body>
 
-<!-- login do administrador -->
-<div id="tela-login" class="tela">
+<!-- sem acesso: não há segundo login, o painel usa a sessão do aplicativo -->
+<div id="tela-aviso" class="tela">
   <div class="login-caixa">
     <div class="login-marca">Painel de usuários</div>
-    <label class="rot">E-mail de administrador</label>
-    <input type="email" id="login-email" autocomplete="username">
-    <label class="rot">Senha</label>
-    <input type="password" id="login-senha" autocomplete="current-password">
-    <button class="btn primario largo" id="bt-entrar">Entrar</button>
-    <div id="login-erro" class="alerta" hidden></div>
-    <p class="dica" style="margin-top:14px">Só contas marcadas como administradoras entram aqui.</p>
+    <p id="aviso-texto" class="dica" style="text-align:center">Conferindo o seu acesso…</p>
+    <a class="btn primario largo" href="../" style="display:block;text-align:center;text-decoration:none">
+      Ir para o aplicativo
+    </a>
   </div>
 </div>
 
@@ -63,7 +60,7 @@
       <div class="acoes-linha">
         <span id="quem" class="dica"></span>
         <button class="btn pequeno" id="bt-atualizar">Atualizar</button>
-        <button class="btn pequeno" id="bt-sair">Sair</button>
+        <a class="btn pequeno" href="../" style="text-decoration:none">← Voltar ao aplicativo</a>
       </div>
     </div>
 

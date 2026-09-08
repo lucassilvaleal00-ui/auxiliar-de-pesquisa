@@ -56,43 +56,42 @@ async function acao(nome, dados = {}) {
   }, sessao.access_token);
 }
 
-/* ------------------------------------------------------------------ login */
+/* ----------------------------------------------------------- quem entrou ---
+   O painel NÃO tem login próprio. Ele usa a mesma sessão do aplicativo (mesmo
+   endereço, mesmo navegador): se você já entrou lá como administrador, aqui
+   abre direto. Quem não for administrador nem chega a ver a tabela — e, mesmo
+   que tentasse, a Edge Function recusa qualquer ação.
+--------------------------------------------------------------------------- */
 
-$('#bt-entrar').onclick = async function () {
-  const bt = this;
-  const email = $('#login-email').value.trim();
-  const senha = $('#login-senha').value;
-  $('#login-erro').hidden = true;
-  bt.disabled = true; bt.textContent = 'Entrando…';
-  try {
-    await Auth.entrar(email, senha, true);
-    await abrirPainel();
-  } catch (e) {
-    $('#login-erro').textContent = e.message;
-    $('#login-erro').hidden = false;
-  } finally {
-    bt.disabled = false; bt.textContent = 'Entrar';
-  }
-};
-$('#tela-login').addEventListener('keydown', e => { if (e.key === 'Enter') $('#bt-entrar').click(); });
-
-$('#bt-sair').onclick = () => { Auth.sair(); location.reload(); };
 $('#bt-atualizar').onclick = () => carregar();
 
-/* ----------------------------------------------------------------- painel */
+function semAcesso(texto) {
+  $('#aviso-texto').innerHTML = texto;
+  $('#tela-aviso').hidden = false;
+  $('#tela-painel').hidden = true;
+}
 
 async function abrirPainel() {
+  if (!Auth.sessao()) {
+    return semAcesso('Entre no aplicativo com a sua conta de administrador — ' +
+                     'o painel usa a mesma sessão, sem pedir senha de novo.');
+  }
   try {
     await carregar();
-    $('#tela-login').hidden = true;
+    $('#tela-aviso').hidden = true;
     $('#tela-painel').hidden = false;
     const s = Auth.sessao();
     $('#quem').textContent = s?.usuario?.email || '';
   } catch (e) {
-    $('#login-erro').textContent = e.message;
-    $('#login-erro').hidden = false;
-    $('#tela-login').hidden = false;
-    $('#tela-painel').hidden = true;
+    const m = String(e.message || '');
+    if (m.includes('administradora')) {
+      semAcesso('Esta conta não é administradora. Se você é o dono do sistema, ' +
+                'marque a sua conta como <code>admin</code> no banco (passo 6 do guia).');
+    } else if (m.includes('sessão') || m.includes('Sessão')) {
+      semAcesso('Sua sessão terminou. Entre de novo no aplicativo e volte aqui.');
+    } else {
+      semAcesso('Não consegui abrir o painel: ' + esc(m));
+    }
   }
 }
 
@@ -310,7 +309,7 @@ async function excluir(u) {
       <i>anon</i>. O passo a passo está no guia <b>COMO_LIGAR_O_LOGIN.pdf</b>.</p></main>`;
     return;
   }
-  if (Auth.sessao()) await abrirPainel();
+  await abrirPainel();
 })();
 
 })();
