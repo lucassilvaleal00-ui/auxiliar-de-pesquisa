@@ -331,3 +331,15 @@ body.so-leitura .citacao .acoes { display: none !important; }
 .conta-linha .quem { min-width: 0; }
 .conta-linha .quem b { display: block; font-size: 14px; }
 .conta-linha .quem small { color: var(--tinta-fraca); font-size: 12.5px; }
+
+/* --------------------------------------------------- citação em destaque
+   Na janela "Citação e referências", o texto da citação vem antes das
+   referências e em cor diferente — foi o pedido: na hora de escrever, o que
+   se cola primeiro é a frase.                                            */
+.citacao-bloco { border-color: var(--marca); background: var(--marca-clara); }
+.citacao-bloco .ref-topo { background: var(--marca); color: #fff; }
+.citacao-bloco .ref-topo .btn { border-color: rgba(255,255,255,.5); }
+.citacao-bloco .ref-texto { color: var(--tinta); font-size: 15px; }
+.citacao-bloco .ref-rodape {
+  padding: 0 12px 9px; font-size: 12.5px; color: var(--tinta-fraca);
+}
