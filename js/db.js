@@ -48,11 +48,12 @@ function indiceLivro(l) {
   const autores = (l.autores || []).map(a => `${a.nome || ''} ${a.sobrenome || ''}`).join(' ');
   const orgs = (l.organizadores || []).map(a => `${a.nome || ''} ${a.sobrenome || ''}`).join(' ');
   return norm([l.titulo, l.subtitulo, l.titulo_original, autores, orgs,
-               l.editora, l.periodico, l.instituicao, l.isbn, l.ano].join(' '));
+               l.editora, l.periodico, l.instituicao, l.isbn, l.ano,
+               l.genero, l.sobre].join(' '));
 }
 
 function indiceCitacao(c) {
-  return norm([c.texto, c.capitulo, c.nota_pessoal].join(' '));
+  return norm([c.texto, c.capitulo, c.assunto, c.nota_pessoal].join(' '));
 }
 
 /* --------------------------------------------------------------------------
@@ -78,6 +79,33 @@ db.version(1).stores({
   livros:     'id, categoria_id, tipo, titulo, atualizado_em, criado_em, busca, incompleta',
   citacoes:   'id, livro_id, pagina, atualizado_em, criado_em',
   config:     'chave'
+});
+
+/* --------------------------------------------------------------------------
+   Versão 2 — o fichamento (setembro de 2026)
+   --------------------------------------------------------------------------
+   Os índices não mudaram; o que mudou foram os dados:
+
+   • citações: o tipo "parafrase" passou a se chamar "indireta", que é o nome
+     usado nas normas e no modelo do professor;
+   • citações ganharam "assunto" (a coluna do meio da tabela do fichamento);
+   • obras ganharam "formato" (impresso/digital), "genero" (comentário
+     bíblico, dicionário…) e "sobre" (de que trata a obra).
+
+   O bloco `upgrade` roda UMA vez no aparelho de cada cliente, dentro de uma
+   transação: ou converte tudo, ou não converte nada. Ninguém perde o que já
+   tinha cadastrado.
+-------------------------------------------------------------------------- */
+db.version(2).stores({}).upgrade(async tx => {
+  await tx.table('citacoes').toCollection().modify(c => {
+    if (c.tipo === 'parafrase' || !c.tipo) c.tipo = 'indireta';
+    if (c.assunto === undefined) c.assunto = '';
+  });
+  await tx.table('livros').toCollection().modify(l => {
+    if (l.formato === undefined) l.formato = '';
+    if (l.genero === undefined) l.genero = '';
+    if (l.sobre === undefined) l.sobre = '';
+  });
 });
 
 /* --------------------------------------------------------------------------
@@ -169,6 +197,9 @@ const Livros = {
       instituicao: '', grau: '',
       url: '', doi: '', issn: '', isbn: '',
       data_acesso: '', versao_biblia: '',
+      formato: '',        // impresso | digital  (aparece no fichamento)
+      genero: '',         // comentário bíblico, dicionário, manual…
+      sobre: '',          // "de que trata a obra", do modelo de fichamento
       capa: null,        // Blob da imagem (preferido)
       capa_url: '',      // reserva: quando o navegador barra o download da capa
       incompleta: 0,
@@ -250,8 +281,9 @@ const Citacoes = {
       livro_id,
       pagina: '',
       capitulo: '',
+      assunto: '',         // a coluna "Assunto" da tabela do fichamento
       texto: '',
-      tipo: 'direta',      // direta | parafrase
+      tipo: 'direta',      // direta | indireta
       nota_pessoal: '',
       busca: '',
       criado_em: agora(),

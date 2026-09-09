@@ -470,7 +470,13 @@ const CAMPO = {
   issn:           { rot: 'ISSN', largura: 'meia' },
   isbn:           { rot: 'ISBN', largura: 'meia' },
   data_acesso:    { rot: 'Data de acesso', data: true, largura: 'meia' },
-  versao_biblia:  { rot: 'Versão/tradução (ex.: ARA, NVI)' }
+  versao_biblia:  { rot: 'Versão/tradução (ex.: ARA, NVI)' },
+  // campos que o fichamento usa
+  formato:        { rot: 'Impressa ou digital', opcoes: ['', 'impresso', 'digital'],
+                    nomes: { '': '—', impresso: 'Impressa', digital: 'Digital' }, largura: 'meia' },
+  genero:         { rot: 'Gênero da obra (ex.: comentário bíblico)', largura: 'meia' },
+  sobre:          { rot: 'De que trata a obra', area: true,
+                    dica: 'Uma ou duas frases. É o que sai no fichamento, em "De que trata a obra".' }
 };
 
 const CAMPOS_POR_TIPO = {
@@ -481,6 +487,9 @@ const CAMPOS_POR_TIPO = {
   site:     ['autores', 'titulo', 'subtitulo', 'nome_site', 'ano', 'url', 'data_acesso'],
   biblia:   ['titulo', 'versao_biblia', 'tradutores', 'cidade', 'editora', 'ano']
 };
+
+// Estes três valem para qualquer tipo e alimentam o fichamento.
+const CAMPOS_FICHAMENTO = ['formato', 'genero', 'sobre'];
 
 function linhaPessoa(p = { nome: '', sobrenome: '' }) {
   return `<div class="pessoa">
@@ -507,8 +516,13 @@ function blocoCampo(nome, livro, obrigatorios) {
   const rot = `<label class="rot">${def.rot} ${obrig ? '<span class="obrig">*</span>' : ''}</label>`;
   if (def.opcoes) {
     return rot + `<select class="campo" data-c="${chave}">` +
-      def.opcoes.map(o => `<option value="${esc(o)}" ${livro[chave] === o ? 'selected' : ''}>${o || '—'}</option>`).join('') +
+      def.opcoes.map(o => `<option value="${esc(o)}" ${livro[chave] === o ? 'selected' : ''}>` +
+        `${esc((def.nomes && def.nomes[o]) || o || '—')}</option>`).join('') +
       `</select>`;
+  }
+  if (def.area) {
+    return rot + `<textarea data-c="${chave}" style="min-height:70px">${valor}</textarea>` +
+      (def.dica ? `<p class="dica">${def.dica}</p>` : '');
   }
   const tipo = def.data ? 'date' : 'text';
   return rot + `<input type="${tipo}" data-c="${chave}" value="${valor}">`;
@@ -549,6 +563,9 @@ function formObra(livro = null, rascunho = null) {
       </select>
 
       ${CAMPOS_POR_TIPO[l.tipo].map(n => blocoCampo(n, l, exigidos)).join('')}
+
+      <h3 style="margin-top:18px">Para o fichamento</h3>
+      ${CAMPOS_FICHAMENTO.map(n => blocoCampo(n, l, exigidos)).join('')}
 
       <label class="rot">Capa</label>
       <div id="area-capa">${l.capa || l.capa_url
@@ -743,6 +760,7 @@ async function telaObra(id, semHistorico = false) {
           <button class="btn primario" data-nova-citacao>+ Nova citação</button>
           <button class="btn" data-editar-obra>Editar obra</button>
           <button class="btn" data-ref-obra>Ver referências</button>
+          <button class="btn" data-fichamento>Gerar fichamento</button>
           <button class="btn perigo" data-excluir-obra>Excluir</button>
         </div>
       </div>
@@ -751,6 +769,7 @@ async function telaObra(id, semHistorico = false) {
   $('#obra-cabecalho').querySelector('[data-nova-citacao]').onclick = () => formCitacao(l);
   $('#obra-cabecalho').querySelector('[data-editar-obra]').onclick = () => formObra(l);
   $('#obra-cabecalho').querySelector('[data-ref-obra]').onclick = () => janelaReferencias(l, {});
+  $('#obra-cabecalho').querySelector('[data-fichamento]').onclick = () => janelaFichamento(l);
   $('#obra-cabecalho').querySelector('[data-excluir-obra]').onclick = async () => {
     const n = await Citacoes.contar(l.id);
     if (!await confirmar('Excluir obra',
@@ -789,7 +808,8 @@ async function desenharCitacoes() {
       <div class="texto">
         <p>${realce(esc(c.texto), termo)}</p>
         ${c.capitulo ? `<div class="cap">${esc(c.capitulo)}</div>` : ''}
-        ${c.tipo === 'parafrase' ? '<div class="cap">paráfrase</div>' : ''}
+        ${c.tipo !== 'direta' ? '<div class="cap">citação indireta</div>' : ''}
+        ${c.assunto ? `<div class="cap">assunto: ${esc(c.assunto)}</div>` : ''}
         ${c.nota_pessoal ? `<div class="cap">📝 ${esc(c.nota_pessoal)}</div>` : ''}
       </div>
     </div>`).join('');
@@ -848,10 +868,14 @@ function formCitacao(livro, citacao = null) {
         <label class="rot">Tipo</label>
         <select class="campo" id="c-tipo">
           <option value="direta" ${c.tipo === 'direta' ? 'selected' : ''}>Citação direta</option>
-          <option value="parafrase" ${c.tipo === 'parafrase' ? 'selected' : ''}>Paráfrase</option>
+          <option value="indireta" ${c.tipo !== 'direta' ? 'selected' : ''}>Citação indireta</option>
         </select>
       </div>
     </div>
+    <label class="rot">Assunto</label>
+    <input type="text" id="c-assunto" value="${esc(c.assunto || '')}"
+           placeholder="Ex.: Autoria de Jonas">
+    <p class="dica">É a coluna do meio da tabela do fichamento.</p>
     <label class="rot">Título do capítulo</label>
     <input type="text" id="c-capitulo" value="${esc(c.capitulo)}">
     <label class="rot">Anotação pessoal (só sua, não entra na referência)</label>
@@ -875,6 +899,7 @@ function formCitacao(livro, citacao = null) {
     c.texto = $('#c-texto').value.trim();
     c.pagina = $('#c-pagina').value.trim();
     c.capitulo = $('#c-capitulo').value.trim();
+    c.assunto = $('#c-assunto').value.trim();
     c.tipo = $('#c-tipo').value;
     c.nota_pessoal = $('#c-nota').value.trim();
     if (!c.texto) return aviso('Escreva o texto da citação.');
@@ -1120,6 +1145,95 @@ async function buscarAvancado() {
   alvo.querySelectorAll('[data-ir-obra]').forEach(d => {
     d.onclick = () => telaObra(d.dataset.irObra);
   });
+}
+
+/* ============================== FICHAMENTO ============================== */
+
+/**
+ * Monta o fichamento no modelo do professor: o cabeçalho da obra e uma tabela
+ * com as citações escolhidas. Aqui o usuário só marca o que entra e escolhe a
+ * norma; quem desenha o PDF é o js/fichamento.js.
+ */
+async function janelaFichamento(livro) {
+  const citacoes = await Citacoes.porLivro(livro.id);
+  if (!citacoes.length) return aviso('Esta obra ainda não tem citações para o fichamento.');
+
+  const faltando = [];
+  if (!livro.formato) faltando.push('se a obra é impressa ou digital');
+  if (!livro.sobre) faltando.push('de que trata a obra');
+
+  abrirJanela('Gerar fichamento', `
+    <p class="dica">${esc(livro.titulo)}</p>
+
+    ${faltando.length ? `<div class="alerta">
+       Falta preencher, no cadastro da obra: <b>${esc(faltando.join(' e '))}</b>.
+       Dá para gerar assim mesmo, mas esses campos aparecem no cabeçalho do fichamento.
+     </div>` : ''}
+
+    <label class="rot">Modelo</label>
+    <select class="campo" id="fic-modelo">
+      <option value="turabian">Turabian — com notas de rodapé</option>
+      <option value="abnt">ABNT — com a chamada no próprio texto</option>
+    </select>
+
+    <label class="marca" style="margin-top:10px">
+      <input type="checkbox" id="fic-abreviar">
+      Da segunda nota em diante, usar a forma abreviada
+    </label>
+    <p class="dica">O modelo do seu professor repete a nota completa em todas.
+      Marque só se o trabalho pedir o padrão do manual.</p>
+
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-top:16px">
+      <label class="rot" style="margin:0">Citações no fichamento</label>
+      <span>
+        <button class="btn pequeno" data-todas>Marcar todas</button>
+        <button class="btn pequeno" data-nenhuma>Desmarcar</button>
+      </span>
+    </div>
+    <div id="fic-lista" style="margin-top:8px">
+      ${citacoes.map((c, i) => `
+        <label class="fic-item">
+          <input type="checkbox" data-cit="${c.id}" checked>
+          <span>
+            <b>${esc(c.assunto || c.capitulo || 'sem assunto')}</b>
+            <small>${c.tipo === 'direta' ? 'citação direta' : 'citação indireta'}${c.pagina ? ' · p. ' + esc(c.pagina) : ''}</small>
+            <span class="trecho">${esc(String(c.texto).slice(0, 150))}${c.texto.length > 150 ? '…' : ''}</span>
+          </span>
+        </label>`).join('')}
+    </div>`,
+    `<button class="btn" data-cancela-fic>Cancelar</button>
+     <button class="btn primario" data-gerar-fic>Gerar PDF</button>`);
+
+  const marcadas = () => Array.from($('#fic-lista').querySelectorAll('[data-cit]'))
+    .filter(i => i.checked).map(i => citacoes.find(c => c.id === i.dataset.cit));
+
+  $('[data-todas]').onclick = () =>
+    $('#fic-lista').querySelectorAll('[data-cit]').forEach(i => { i.checked = true; });
+  $('[data-nenhuma]').onclick = () =>
+    $('#fic-lista').querySelectorAll('[data-cit]').forEach(i => { i.checked = false; });
+  $('[data-cancela-fic]').onclick = fecharJanela;
+
+  $('[data-gerar-fic]').onclick = async function () {
+    const escolhidas = marcadas();
+    if (!escolhidas.length) return aviso('Marque ao menos uma citação.');
+    this.disabled = true;
+    const antes = this.textContent;
+    this.textContent = 'Montando…';
+    try {
+      const { doc, nome } = window.Fichamento.gerar(livro, escolhidas, {
+        modelo: $('#fic-modelo').value,
+        abreviarNotas: $('#fic-abreviar').checked
+      });
+      doc.save(nome);
+      fecharJanela();
+      aviso(`Fichamento gerado com ${escolhidas.length} citação(ões).`, 4000);
+    } catch (e) {
+      console.error(e);
+      aviso('Não consegui montar o PDF: ' + e.message, 6000);
+    } finally {
+      this.disabled = false; this.textContent = antes;
+    }
+  };
 }
 
 /* ============================== MINHA CONTA ============================= */
