@@ -8,7 +8,7 @@
    >>> velhos que guardou, e o cliente não vê a sua correção.
    ========================================================================== */
 
-const VERSAO = 'v5';
+const VERSAO = 'v6';
 const CACHE = `auxiliar-pesquisa-${VERSAO}`;
 
 // Tudo o que o app precisa para abrir sem internet.
@@ -18,9 +18,11 @@ const ARQUIVOS = [
   './style.css',
   './manifest.json',
   './vendor/dexie.min.js',
+  './vendor/jspdf.umd.min.js',
   './js/config-app.js',
   './js/db.js',
   './js/auth.js',
+  './js/fichamento.js',
   './js/referencias.js',
   './js/api.js',
   './js/app.js',
