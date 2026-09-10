@@ -1,44 +1,94 @@
-FICHAMENTO EM WORD (v15)
-========================
+PASTAS DE CITAÇÕES, IBID. E CENTRALIZAÇÃO (v16)
+===============================================
 
-ARQUIVOS PARA SUBSTITUIR
-------------------------
+>>> ATENÇÃO: esta atualização tem UM PASSO NO SUPABASE. Faça-o primeiro.
+
+PASSO 1 — no Supabase
+---------------------
+SQL Editor → New query → cole supabase/schema-nuvem.sql INTEIRO → Run.
+É o mesmo arquivo de antes, agora com a tabela `pastas`. Rodar de novo não
+estraga nada do que já existe.
+
+Se você pular este passo, as pastas funcionam no aparelho mas não sincronizam,
+e a tarja no canto vai avisar em laranja.
+
+PASSO 2 — no GitHub
+-------------------
     index.html      (na raiz)
     sw.js           (na raiz)
+    style.css       (na raiz)
+    js/db.js
     js/app.js
-    js/word.js      <- ARQUIVO NOVO
+    js/referencias.js
+    js/fichamento.js
+    js/word.js
+    js/nuvem.js
 
-Depois: ⚙ Configurações → o quadro "Versão" tem que dizer v15.
-Nada muda no banco de dados nem no Supabase.
+Depois: ⚙ Configurações → o quadro "Versão" tem que dizer v16.
+O js/config-app.js continua fora, como sempre.
 
-O QUE MUDOU
------------
-Na janela "Gerar fichamento" há agora, abaixo do modelo, a escolha
-"Formato do arquivo":
+--------------------------------------------------------------------------
+1. PASTAS DENTRO DA OBRA
+--------------------------------------------------------------------------
+Na tela da obra, logo abaixo do cabeçalho, apareceu uma barra igual à das
+categorias — mas ela vale só dentro daquela obra:
 
-    PDF  — pronto para entregar ou imprimir (continua sendo o padrão)
-    Word — .docx, para continuar editando
+    [ Todas 12 ] [ Autoria 4 ] [ Datação 3 ] [ Soltas 5 ] [ + Nova pasta ]
 
-O botão muda de nome conforme a escolha ("Gerar PDF" / "Gerar Word"), e o
-documento sai igual nos dois: mesma tabela, mesmas notas, mesmo cabeçalho.
+Clicando numa pasta, a lista mostra só as citações dela. Com uma pasta aberta
+há ainda "✎ Renomear" e "🗑 Excluir pasta".
 
-O WORD É DE VERDADE
--------------------
-Não é um HTML com outro nome — é um .docx mesmo. Isso importa na prática:
+• Cada citação tem agora um campo "Pasta" no formulário.
+• Citação nova criada com uma pasta aberta já nasce dentro dela.
+• Se você mover uma citação para outra pasta, a tela vai junto — senão ela
+  pareceria ter sumido.
+• EXCLUIR A PASTA NÃO APAGA AS CITAÇÕES. Elas voltam a ficar soltas. É a
+  mesma regra das categorias, e é proposital.
 
-• As notas de rodapé são notas de rodapé do Word. Numeram sozinhas. Se você
-  acrescentar um parágrafo antes, elas se reorganizam sem você fazer nada.
-• O número da página é um campo, não um texto digitado.
-• O itálico do título vem junto, como itálico.
-• A linha de cabeçalho da tabela se repete no alto de cada página nova.
-• Abre no Word, no Google Docs e no LibreOffice.
+No "Gerar fichamento", as citações agora aparecem separadas por pasta, cada
+uma com a sua caixinha: dá para marcar a pasta inteira de uma vez, ou entrar
+e escolher uma a uma. Desmarcando algumas à mão, a caixinha da pasta fica
+meio-marcada, para você ver de relance que aquela pasta não vai inteira.
 
-Conferi gerando o arquivo no navegador e abrindo com o LibreOffice, que
-reclama das mesmas coisas que o Word reclamaria. Abriu limpo.
+--------------------------------------------------------------------------
+2. IBID. (você tinha razão)
+--------------------------------------------------------------------------
+A caixinha "usar a forma abreviada" virou uma lista de três:
 
-QUANDO USAR CADA UM
--------------------
-PDF quando for entregar ou imprimir: sai exatamente como você viu e ninguém
-desconfigura sem querer.
-Word quando você ainda for mexer: acrescentar um comentário seu, juntar com
-outro trabalho, mudar a fonte que o professor pediu.
+    Repetir a nota completa em todas      (o modelo do seu professor)
+    Da segunda em diante, forma abreviada (o que o Turabian 9 recomenda em geral)
+    Da segunda em diante, Ibid.
+
+O Turabian 9 desaconselha o Ibid. no caso geral porque ele quebra em silêncio
+se alguém inserir uma nota no meio. Mas no fichamento TODAS as notas são da
+mesma obra em sequência — que é exatamente a condição em que o Ibid. vale.
+
+Quando a página é a mesma da nota anterior, sai só "Ibid.", sem repetir o
+número.
+
+--------------------------------------------------------------------------
+3. A CHAMADA ABNT DA BÍBLIA (era um erro meu)
+--------------------------------------------------------------------------
+Estava saindo "(MIQUÉIAS 2:1, ARA)". No sistema autor-data a chamada tem que
+começar pela mesma palavra que abre a entrada na lista de referências — e a
+entrada da Bíblia começa em "BÍBLIA". Do jeito antigo, quem lesse o seu
+trabalho não chegava à obra.
+
+Agora sai "(BÍBLIA, 1999, Mq 2, 1)", com vírgula entre capítulo e versículo,
+como a própria norma exemplifica. O Turabian continua como estava: "Mq 2:1
+(ARA)." em nota, com dois-pontos, e sem entrar na bibliografia.
+
+--------------------------------------------------------------------------
+4. TEXTO CENTRALIZADO
+--------------------------------------------------------------------------
+Na coluna "Informações para o fichamento", o texto da citação sai
+centralizado — no PDF e no Word.
+
+--------------------------------------------------------------------------
+BANCO DE DADOS
+--------------------------------------------------------------------------
+Sobe da versão 6 para a 7 sozinho. Cria a tabela das pastas e acrescenta o
+campo "pasta" nas citações que já existem (vazio = solta). Nada é apagado.
+
+O arquivo de backup também mudou: agora leva as pastas junto. Backups antigos
+continuam sendo aceitos — as citações deles simplesmente ficam soltas.

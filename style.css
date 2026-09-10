@@ -396,3 +396,14 @@ body.so-leitura .citacao .acoes { display: none !important; }
 .faixa-nuvem .girando { display: inline-block; animation: girar 1s linear infinite; }
 @keyframes girar { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .faixa-nuvem .girando { animation: none; } }
+
+/* --------------------------------------------- pastas dentro do fichamento */
+.fic-grupo { margin-bottom: 10px; }
+.fic-pasta {
+  display: flex; align-items: center; gap: 8px;
+  background: var(--marca-clara); border: 1px solid var(--linha);
+  border-radius: 8px; padding: 7px 10px; margin-bottom: 4px; cursor: pointer;
+}
+.fic-pasta b { font-size: 14px; }
+.fic-pasta small { color: var(--tinta-fraca); font-size: 12px; }
+.fic-grupo .fic-item { margin-left: 14px; }
