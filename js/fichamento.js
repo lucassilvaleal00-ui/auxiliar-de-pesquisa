@@ -275,13 +275,14 @@ function gerar(livro, citacoes, opcoes = {}) {
 
 /* --------------------------------------------------------------- apoio */
 
-// "Livro impresso (comentário bíblico)." — como no modelo do professor
+// "Livro impresso (comentário bíblico)." — como no modelo do professor.
+// Quando a obra não diz se é impressa ou digital, escrevemos "impresso": é o
+// caso da grande maioria, e o modelo nunca traz o tipo sozinho ("Livro.").
 function descreverTipo(l) {
   const tipo = (R.TIPOS.find(t => t.id === l.tipo) || {}).nome || 'Obra';
-  const formato = l.formato === 'digital' ? 'digital'
-                : l.formato === 'impresso' ? 'impresso' : '';
+  const formato = l.formato === 'digital' ? 'digital' : 'impresso';
   const genero = (l.genero || '').trim();
-  return `${tipo}${formato ? ' ' + formato : ''}${genero ? ' (' + genero + ')' : ''}.`;
+  return `${tipo} ${formato}${genero ? ' (' + genero + ')' : ''}.`;
 }
 
 window.Fichamento = { gerar, descreverTipo, partesDeHTML };

@@ -10,6 +10,10 @@ const { Categorias, Livros, Citacoes, Config,
         pedirPersistencia, espacoUsado, norm } = window.DB;
 const R = window.Referencias;
 
+/* Precisa ser igual ao VERSAO do sw.js. Aparece em Configurações: é assim que
+   se confere, num aparelho qualquer, se a última publicação já chegou. */
+const VERSAO_APP = 'v8';
+
 /* --------------------------------------------------------------- atalhos */
 
 const $  = s => document.querySelector(s);
@@ -1191,7 +1195,8 @@ async function janelaFichamento(livro) {
   if (!citacoes.length) return aviso('Esta obra ainda não tem citações para o fichamento.');
 
   const faltando = [];
-  if (!livro.formato) faltando.push('se a obra é impressa ou digital');
+  // Sem esse campo o fichamento assume "impresso"; vale avisar, mas sem susto.
+  if (!livro.formato) faltando.push('se a obra é impressa ou digital (vai sair como impressa)');
   if (!livro.sobre) faltando.push('de que trata a obra');
 
   abrirJanela('Gerar fichamento', `
@@ -1337,7 +1342,11 @@ $('#btn-config').onclick = async () => {
     <h3 style="margin-top:18px">Manutenção</h3>
     <button class="btn" data-exemplos style="width:100%;margin-bottom:8px">Carregar dados de exemplo</button>
     <button class="btn perigo" data-apagar style="width:100%">Apagar tudo deste aparelho</button>
-    <p class="dica">Versão 1.0 — Fase 1 (uso local, sem login).</p>`,
+
+    <h3 style="margin-top:18px">Versão</h3>
+    <p class="dica">Este aparelho está com a versão <b id="versao-app">${VERSAO_APP}</b>.
+      Se você acabou de publicar uma correção e ela não aparece, use o botão abaixo.</p>
+    <button class="btn" data-atualizar style="width:100%">↻ Buscar atualização agora</button>`,
     `<button class="btn" data-fechar4>Fechar</button>`);
 
   $('#tema').value = localStorage.getItem('tema') || 'auto';
@@ -1348,6 +1357,21 @@ $('#btn-config').onclick = async () => {
 
   $('[data-fechar4]').onclick = fecharJanela;
   $('[data-exportar]').onclick = exportarArquivo;
+  $('[data-atualizar]').onclick = async () => {
+    aviso('Procurando versão nova…', 4000);
+    try {
+      // Joga fora o cache do service worker e busca tudo de novo do servidor.
+      if ('serviceWorker' in navigator) {
+        const regs = await navigator.serviceWorker.getRegistrations();
+        await Promise.all(regs.map(r => r.unregister()));
+      }
+      if (window.caches) {
+        const nomes = await caches.keys();
+        await Promise.all(nomes.map(n => caches.delete(n)));
+      }
+    } catch { /* se o navegador não deixar, o reload abaixo ainda ajuda */ }
+    location.reload();
+  };
   $('#arq-importar').onchange = e => importarArquivo(e.target.files[0]);
   const bp = $('[data-persistir]');
   if (bp) bp.onclick = async () => {
@@ -1559,6 +1583,18 @@ async function iniciar() {
   await entrarNoApp();
 
   if ('serviceWorker' in navigator) {
+    // Havia um service worker mandando nesta página quando ela abriu?
+    // Se havia e outro assumir o lugar, é porque saiu versão nova: recarrega
+    // uma vez sozinho. Sem isso, a primeira atualização depois de publicar só
+    // aparecia no segundo recarregamento — a página já tinha lido os arquivos
+    // velhos do cache antes de o service worker novo entrar.
+    const jaTinhaControle = !!navigator.serviceWorker.controller;
+    let recarregando = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!jaTinhaControle || recarregando) return;
+      recarregando = true;
+      location.reload();
+    });
     navigator.serviceWorker.register('sw.js').catch(e => console.warn('Service worker:', e));
   }
 }

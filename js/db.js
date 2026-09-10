@@ -220,7 +220,7 @@ const Livros = {
       instituicao: '', grau: '',
       url: '', doi: '', issn: '', isbn: '',
       data_acesso: '', versao_biblia: '',
-      formato: '',        // impresso | digital  (aparece no fichamento)
+      formato: 'impresso', // impresso | digital  (aparece no fichamento)
       genero: '',         // comentário bíblico, dicionário, manual…
       sobre: '',          // "de que trata a obra", do modelo de fichamento
       capa: null,        // Blob da imagem (preferido)
