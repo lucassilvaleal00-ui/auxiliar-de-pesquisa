@@ -1,0 +1,42 @@
+ATUALIZAÇÃO — Estado da cidade e colaboradores
+==============================================
+
+O que mudou
+-----------
+1. ESTADO: no cadastro da obra, logo depois de "Cidade da editora", há agora
+   "Estado (sigla, ex.: SP)". Se você preencher, a referência sai como
+   "Belém, PA"; se deixar em branco, sai só "Belém", como antes.
+
+2. COLABORADORES: logo abaixo do bloco dos autores há uma caixinha —
+   "Esta obra tem colaboradores". Só quando ela é marcada é que aparece a
+   lista de nomes (com o botão "+ acrescentar pessoa", igual à dos autores).
+   Desmarcar a caixinha apaga os nomes.
+
+   Nas referências eles entram assim:
+     Turabian (nota) ......... com Arthur Spalding
+     Turabian (bibliografia) . Com Arthur Spalding.
+     ABNT .................... Colaboração de Arthur Spalding.
+   Com quatro ou mais colaboradores, sai o primeiro seguido de "et al.".
+
+Como instalar no GitHub
+-----------------------
+Substitua no seu repositório os 4 arquivos desta pasta, nos mesmos lugares:
+
+    sw.js                (na raiz)
+    js/db.js
+    js/app.js
+    js/referencias.js
+
+O arquivo js/config-app.js NÃO está aqui de propósito — ele guarda as suas
+chaves do Supabase e não deve ser sobrescrito.
+
+Depois de publicar, abra o app e atualize a página uma vez (no celular, feche
+e abra o app). O sw.js já vem com a versão v7, então o navegador troca os
+arquivos velhos sozinho.
+
+Sobre o banco de dados no aparelho
+----------------------------------
+O IndexedDB sobe da versão 2 para a 3 na primeira vez que o app abrir.
+A migração só acrescenta os dois campos novos (estado vazio e lista de
+colaboradores vazia) nas obras que já existem. Nada é apagado, e obras
+gravadas antes continuam abrindo normalmente.
