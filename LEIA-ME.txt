@@ -1,55 +1,44 @@
-FASE 5 — A BIBLIOTECA NA NUVEM (v14)
-====================================
-
->>> LEIA O PDF "A_BIBLIOTECA_NA_NUVEM.pdf" ANTES. São 4 páginas e o passo a
->>> passo do Supabase está lá. Este arquivo é só o resumo.
-
-ORDEM DAS COISAS
-----------------
-1. No Supabase: SQL Editor → cole supabase/schema-nuvem.sql inteiro → Run.
-2. No GitHub: substitua os arquivos abaixo.
-3. No app: ⚙ Configurações → o quadro "Versão" tem que dizer v14.
-
-Se inverter a ordem não estraga nada — o app só vai mostrar um aviso
-alaranjado dizendo que as tabelas ainda não existem, até você rodar o SQL.
+FICHAMENTO EM WORD (v15)
+========================
 
 ARQUIVOS PARA SUBSTITUIR
 ------------------------
-    index.html         (na raiz)
-    sw.js              (na raiz)
-    style.css          (na raiz)
-    js/db.js
+    index.html      (na raiz)
+    sw.js           (na raiz)
     js/app.js
-    js/auth.js
-    js/nuvem.js        <- ARQUIVO NOVO
+    js/word.js      <- ARQUIVO NOVO
 
-    supabase/schema-nuvem.sql   <- ARQUIVO NOVO (não vai para o GitHub;
-                                   é para colar no SQL Editor do Supabase)
+Depois: ⚙ Configurações → o quadro "Versão" tem que dizer v15.
+Nada muda no banco de dados nem no Supabase.
 
-O js/config-app.js NÃO está aqui de propósito — guarda as suas chaves.
+O QUE MUDOU
+-----------
+Na janela "Gerar fichamento" há agora, abaixo do modelo, a escolha
+"Formato do arquivo":
 
-O QUE FOI FEITO
----------------
-• A biblioteca sobe sozinha para a sua conta e desce em qualquer aparelho
-  onde você entrar. Capas inclusive.
-• Cada usuário só enxerga a própria biblioteca. Quem garante isso é o banco
-  (RLS), não o JavaScript — não dá para burlar pelo navegador.
-• O app continua abrindo e funcionando SEM INTERNET. O que mudou fica numa
-  fila e sobe quando a conexão voltar.
-• Editou a mesma obra em dois aparelhos? Vence a edição mais recente.
-• Excluiu uma obra? A exclusão viaja e ela não ressuscita no outro aparelho.
-• No primeiro login, se houver obras antigas no aparelho, o app pergunta
-  antes de mandá-las para a sua conta.
+    PDF  — pronto para entregar ou imprimir (continua sendo o padrão)
+    Word — .docx, para continuar editando
 
-UMA OBSERVAÇÃO SOBRE "UM BANCO POR USUÁRIO"
--------------------------------------------
-Você pediu bancos separados por usuário. No Supabase isso não existe do jeito
-pedido: o projeto tem um banco só. O que foi feito dá o mesmo resultado —
-tabelas únicas com a coluna usuario_id e a trava RLS ligada. Está explicado
-na primeira página do PDF.
+O botão muda de nome conforme a escolha ("Gerar PDF" / "Gerar Word"), e o
+documento sai igual nos dois: mesma tabela, mesmas notas, mesmo cabeçalho.
 
-TESTE PRIMEIRO COM UMA CONTA DE MENTIRA
----------------------------------------
-Antes de mexer na sua biblioteca de verdade, crie um usuário de teste pelo
-painel e faça a prova das três telas descrita na página 2 do PDF. É rápido e
-tira qualquer dúvida sobre o isolamento entre contas.
+O WORD É DE VERDADE
+-------------------
+Não é um HTML com outro nome — é um .docx mesmo. Isso importa na prática:
+
+• As notas de rodapé são notas de rodapé do Word. Numeram sozinhas. Se você
+  acrescentar um parágrafo antes, elas se reorganizam sem você fazer nada.
+• O número da página é um campo, não um texto digitado.
+• O itálico do título vem junto, como itálico.
+• A linha de cabeçalho da tabela se repete no alto de cada página nova.
+• Abre no Word, no Google Docs e no LibreOffice.
+
+Conferi gerando o arquivo no navegador e abrindo com o LibreOffice, que
+reclama das mesmas coisas que o Word reclamaria. Abriu limpo.
+
+QUANDO USAR CADA UM
+-------------------
+PDF quando for entregar ou imprimir: sai exatamente como você viu e ninguém
+desconfigura sem querer.
+Word quando você ainda for mexer: acrescentar um comentário seu, juntar com
+outro trabalho, mudar a fonte que o professor pediu.
