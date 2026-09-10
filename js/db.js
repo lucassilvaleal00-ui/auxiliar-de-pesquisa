@@ -206,6 +206,34 @@ db.version(6).stores({
 });
 
 /* --------------------------------------------------------------------------
+   Versão 7 — pastas dentro da obra (setembro de 2026)
+   --------------------------------------------------------------------------
+   Uma obra de mil páginas rende dezenas de citações, e procurá-las numa lista
+   corrida cansa. As pastas dividem essa lista POR ASSUNTO, dentro da obra:
+   "Autoria", "Datação", "Uso no Novo Testamento".
+
+   Não confundir com as CATEGORIAS, que são outra coisa: categoria agrupa
+   OBRAS na biblioteca inteira; pasta agrupa CITAÇÕES dentro de uma obra só.
+   Por isso `pastas` tem `livro_id`: uma pasta pertence a uma obra e some com
+   ela.
+
+   Citação sem pasta continua valendo — é o estado normal de quem não quiser
+   organizar. `pasta_id` vazio significa "solta".
+-------------------------------------------------------------------------- */
+db.version(7).stores({
+  pastas: 'id, livro_id, ordem, atualizado_em',
+  // `citacoes` é redeclarada inteira porque ganhou o índice `pasta_id`. Sem o
+  // índice, o Dexie recusa `where('pasta_id')` — e é assim que se conta quantas
+  // citações há em cada pasta. Redeclarar exige repetir a lista toda: o que
+  // não estiver aqui deixa de ser índice.
+  citacoes: 'id, livro_id, pasta_id, pagina, atualizado_em, criado_em'
+}).upgrade(async tx => {
+  await tx.table('citacoes').toCollection().modify(c => {
+    if (c.pasta_id === undefined) c.pasta_id = '';
+  });
+});
+
+/* --------------------------------------------------------------------------
    3. Categorias
    -------------------------------------------------------------------------- */
 
@@ -351,13 +379,16 @@ const Livros = {
   // Apagar a obra apaga as citações dela — as duas coisas na mesma transação,
   // para nunca sobrar citação órfã se o navegador fechar no meio.
   async excluir(id) {
-    return db.transaction('rw', db.livros, db.citacoes, db.excluidos, async () => {
+    return db.transaction('rw', db.livros, db.citacoes, db.pastas, db.excluidos, async () => {
       // As citações também precisam de lápide, uma a uma: o outro aparelho
       // não tem como adivinhar que elas foram junto com a obra.
       const filhas = await db.citacoes.where('livro_id').equals(id).primaryKeys();
+      const gavetas = await db.pastas.where('livro_id').equals(id).primaryKeys();
       await db.citacoes.where('livro_id').equals(id).delete();
+      await db.pastas.where('livro_id').equals(id).delete();
       await db.livros.delete(id);
       await enterrar('citacoes', filhas);
+      await enterrar('pastas', gavetas);
       await enterrar('livros', id);
     });
   },
@@ -387,6 +418,57 @@ const Livros = {
 };
 
 /* --------------------------------------------------------------------------
+   4b. Pastas (dentro de uma obra)
+   --------------------------------------------------------------------------
+   Mesma regra das categorias, e de propósito: apagar a pasta NUNCA apaga as
+   citações dela — elas voltam a ficar soltas. Ninguém perde texto por ter
+   reorganizado a gaveta.
+   -------------------------------------------------------------------------- */
+
+const Pastas = {
+  async porLivro(livro_id) {
+    const lista = await db.pastas.where('livro_id').equals(livro_id).toArray();
+    lista.sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0) ||
+                          (a.titulo || '').localeCompare(b.titulo || '', 'pt-BR'));
+    return lista;
+  },
+
+  async obter(id) { return db.pastas.get(id); },
+
+  async criar({ livro_id, titulo }) {
+    if (!titulo || !titulo.trim()) throw new Error('A pasta precisa de um nome.');
+    const quantas = await db.pastas.where('livro_id').equals(livro_id).count();
+    const pasta = {
+      id: uuid(), livro_id, titulo: titulo.trim(), ordem: quantas,
+      criado_em: agora(), atualizado_em: agora()
+    };
+    await db.pastas.add(pasta);
+    mexeu();
+    return pasta;
+  },
+
+  async editar(id, dados) {
+    if (dados.titulo !== undefined && !dados.titulo.trim())
+      throw new Error('A pasta precisa de um nome.');
+    await db.pastas.update(id, { ...dados, atualizado_em: agora() });
+    mexeu();
+  },
+
+  async excluir(id) {
+    return db.transaction('rw', db.pastas, db.citacoes, db.excluidos, async () => {
+      await db.citacoes.where('pasta_id').equals(id)
+                       .modify({ pasta_id: '', atualizado_em: agora() });
+      await db.pastas.delete(id);
+      await enterrar('pastas', id);
+    });
+  },
+
+  async contar(id) {
+    return db.citacoes.where('pasta_id').equals(id).count();
+  }
+};
+
+/* --------------------------------------------------------------------------
    5. Citações
    -------------------------------------------------------------------------- */
 
@@ -395,6 +477,7 @@ const Citacoes = {
     return {
       id: uuid(),
       livro_id,
+      pasta_id: '',        // vazio = solta, fora de qualquer pasta
       pagina: '',
       capitulo: '',
       assunto: '',         // a coluna "Assunto" da tabela do fichamento
@@ -420,8 +503,12 @@ const Citacoes = {
 
   // Em ordem de página, como o documento pede. A página é texto (pode ser
   // "45-47" ou "xii"), então a ordenação usa o primeiro número encontrado.
-  async porLivro(livro_id, termo = '') {
+  /**
+   * @param pasta_id  null = todas · '' = só as soltas · id = só as daquela pasta
+   */
+  async porLivro(livro_id, termo = '', pasta_id = null) {
     let lista = await db.citacoes.where('livro_id').equals(livro_id).toArray();
+    if (pasta_id !== null) lista = lista.filter(c => (c.pasta_id || '') === pasta_id);
     if (termo) {
       const t = norm(termo);
       lista = lista.filter(c => (c.busca || '').includes(t));
@@ -508,7 +595,9 @@ async function espacoUsado() {
    importação. Esse mesmo formato será o do backup no Google Drive (Fase 4).
 -------------------------------------------------------------------------- */
 
-const FORMATO_BACKUP = 1;
+// 1 → sem pastas · 2 → com pastas. O importador aceita os dois: um backup
+// antigo simplesmente não traz pastas, e as citações dele ficam soltas.
+const FORMATO_BACKUP = 2;
 
 function blobParaBase64(blob) {
   return new Promise((ok, erro) => {
@@ -525,8 +614,8 @@ async function base64ParaBlob(dataUrl) {
 }
 
 async function exportarTudo() {
-  const [categorias, livros, citacoes, config] = await Promise.all([
-    db.categorias.toArray(), db.livros.toArray(),
+  const [categorias, livros, pastas, citacoes, config] = await Promise.all([
+    db.categorias.toArray(), db.livros.toArray(), db.pastas.toArray(),
     db.citacoes.toArray(), db.config.toArray()
   ]);
   for (const l of livros) {
@@ -537,7 +626,7 @@ async function exportarTudo() {
     app: 'auxiliar-de-pesquisa',
     exportado_em: agora(),
     contagem: { categorias: categorias.length, livros: livros.length, citacoes: citacoes.length },
-    categorias, livros, citacoes,
+    categorias, livros, pastas, citacoes,
     config: config.filter(c => c.chave !== 'google_token')  // token não vai no backup
   };
 }
@@ -561,11 +650,13 @@ async function importarTudo(dados, modo = 'juntar') {
     }
   }
 
-  return db.transaction('rw', db.categorias, db.livros, db.citacoes, db.config, async () => {
+  return db.transaction('rw', db.categorias, db.livros, db.pastas, db.citacoes, db.config, async () => {
     if (modo === 'substituir') {
-      await Promise.all([db.categorias.clear(), db.livros.clear(), db.citacoes.clear()]);
+      await Promise.all([db.categorias.clear(), db.livros.clear(),
+                         db.pastas.clear(), db.citacoes.clear()]);
       await db.categorias.bulkPut(dados.categorias || []);
       await db.livros.bulkPut(livros);
+      await db.pastas.bulkPut(dados.pastas || []);
       await db.citacoes.bulkPut(dados.citacoes || []);
       mexeu();
       return { categorias: (dados.categorias || []).length, livros: livros.length,
@@ -585,6 +676,7 @@ async function importarTudo(dados, modo = 'juntar') {
     };
     const c1 = await mesclar(db.categorias, dados.categorias || []);
     const c2 = await mesclar(db.livros, livros);
+    await mesclar(db.pastas, dados.pastas || []);
     const c3 = await mesclar(db.citacoes, dados.citacoes || []);
     mexeu();
     return { categorias: c1, livros: c2, citacoes: c3, ignorados };
@@ -658,7 +750,7 @@ async function apagarDaNuvem(tabela, id) {
 
 window.DB = {
   db, uuid, norm, agora,
-  Categorias, Livros, Citacoes, Config,
+  Categorias, Pastas, Livros, Citacoes, Config,
   exportarTudo, importarTudo, semearExemplos,
   pedirPersistencia, espacoUsado, FORMATO_BACKUP,
   enterrar, gravarDaNuvem, apagarDaNuvem

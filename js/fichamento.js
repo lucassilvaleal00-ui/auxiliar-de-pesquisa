@@ -98,6 +98,15 @@ function quebrar(doc, partes, largura, tam) {
   return linhas;
 }
 
+/** Largura da linha, desprezando o espaço que sobra no fim dela. */
+function larguraLinha(linha) {
+  let fim = linha.length;
+  while (fim > 0 && !/\S/.test(linha[fim - 1].t)) fim--;
+  let w = 0;
+  for (let i = 0; i < fim; i++) w += linha[i].w;
+  return w;
+}
+
 function desenharLinha(doc, linha, x, y, tam) {
   let cursor = x;
   for (const f of linha) {
@@ -112,7 +121,10 @@ function desenharLinha(doc, linha, x, y, tam) {
 
 function gerar(livro, citacoes, opcoes = {}) {
   const modelo = opcoes.modelo === 'abnt' ? 'abnt' : 'turabian';
-  const abreviarNotas = !!opcoes.abreviarNotas;
+  // completa | abreviada | ibid  (o nome antigo `abreviarNotas` ainda é aceito,
+  // para não quebrar nada que ainda chame do jeito de antes)
+  const repetidas = opcoes.repetidas || (opcoes.abreviarNotas ? 'abreviada' : 'completa');
+  let paginaAnterior = null;
   const { jsPDF } = window.jspdf;
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
 
@@ -224,9 +236,17 @@ function gerar(livro, citacoes, opcoes = {}) {
     let notaLinhas = null;
     if (modelo === 'turabian') {
       corpoPartes.push({ t: String(numeroNota), e: 'sobre' });
-      const primeira = numeroNota === 1 || !abreviarNotas;
-      const html = R.gerar(livro, { pagina: c.pagina, capitulo: c.capitulo },
-                           primeira ? 'turabian-nota' : 'turabian-abrev').html;
+      const primeira = numeroNota === 1 || repetidas === 'completa';
+      let formato = 'turabian-nota';
+      let dados = { pagina: c.pagina, capitulo: c.capitulo };
+      if (!primeira) {
+        formato = repetidas === 'ibid' ? 'turabian-ibid' : 'turabian-abrev';
+        // "Ibid." sozinho já diz que é o mesmo trecho: repetir a página seria
+        // dizer duas vezes a mesma coisa.
+        if (formato === 'turabian-ibid' && c.pagina === paginaAnterior) dados = { pagina: '' };
+      }
+      paginaAnterior = c.pagina;
+      const html = R.gerar(livro, dados, formato).html;
       notaLinhas = quebrar(doc, partesDeHTML(html), LARGURA, NOTA);
     } else {
       corpoPartes[0].t += ' ';
@@ -258,8 +278,11 @@ function gerar(livro, citacoes, opcoes = {}) {
     celulas.forEach((linhas, i) => {
       if (i > 0) doc.line(x, y, x, y + altura);
       let yy = y + PAD + mm(CORPO) * 0.85;
+      const util = COL[i] - PAD * 2;
       for (const linha of linhas) {
-        desenharLinha(doc, linha, x + PAD, yy, CORPO);
+        // A terceira coluna — o texto da citação — sai centralizada.
+        const recuo = (i === 2) ? Math.max(0, (util - larguraLinha(linha)) / 2) : 0;
+        desenharLinha(doc, linha, x + PAD + recuo, yy, CORPO);
         yy += alturaLinha(CORPO);
       }
       x += COL[i];

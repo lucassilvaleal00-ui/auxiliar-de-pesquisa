@@ -472,11 +472,20 @@
 
   /* ========================= ABNT — CITAÇÃO NO TEXTO ======================= */
 
+  /* A ABNT separa capítulo e versículo por VÍRGULA, não por dois-pontos como o
+     Turabian: "Mq 2, 1". Quem cadastra digita de um jeito só; a conversão é
+     feita aqui, na hora de escrever no formato de cada norma. */
+  const versiculoAbnt = t => String(t || '').replace(/\s*:\s*/g, ', ');
+
   function abntAutorData(l, o) {
     const p = pg(o.pagina);
     if (base(l) === 'biblia') {
-      const ref = refBiblia(l, o);
-      return `(${esc(ref.toUpperCase())}${(l.versao_biblia || '').trim() ? ', ' + esc(l.versao_biblia) : ''})`;
+      // No sistema autor-data a chamada TEM que começar pela mesma palavra que
+      // abre a referência — e a entrada da Bíblia começa em "BÍBLIA". Escrever
+      // "(MIQUÉIAS 2:1)" deixaria o leitor sem caminho até a obra na lista.
+      const ano = (l.ano || '').trim() || '[s.d.]';
+      const ref = versiculoAbnt(refBiblia(l, o));
+      return `(BÍBLIA, ${esc(ano)}${ref ? ', ' + esc(ref) : ''})`;
     }
     const quem = sobrenomeAbnt(l.autores) ||
                  (base(l) === 'site' ? (l.periodico || l.instituicao || '').toUpperCase() : '');
@@ -486,9 +495,25 @@
 
   /* ================================ fachada =============================== */
 
+  /* ============================ TURABIAN — IBID. ==========================
+     Vale só quando a nota IMEDIATAMENTE anterior é da mesma obra — condição
+     que o fichamento cumpre por natureza, já que todas as suas notas são da
+     mesma obra, em sequência. Quem decide se ela vale é quem chama.
+
+     Sem página, quando a página é a mesma da nota anterior: "Ibid." sozinho já
+     diz que é o mesmo trecho. E "Ibid." não leva itálico em Turabian (a ABNT é
+     que exige, e lá esta forma não é usada — o fichamento ABNT é autor-data).
+  --------------------------------------------------------------------------*/
+  function turabianIbid(l, o) {
+    if (base(l) === 'biblia') return turabianAbrev(l, o);
+    const p = pg(o.pagina);
+    return p ? `Ibid., ${esc(p)}.` : 'Ibid.';
+  }
+
   const GERADORES = {
     'turabian-nota': turabianNota,
     'turabian-abrev': turabianAbrev,
+    'turabian-ibid': turabianIbid,
     'turabian-bib': (l) => turabianBib(l),
     'abnt-ref': (l) => abntRef(l),
     'abnt-autordata': abntAutorData

@@ -154,7 +154,9 @@ function celula(largura, conteudo, { fundo = '' } = {}) {
 
 function gerar(livro, citacoes, opcoes = {}) {
   const modelo = opcoes.modelo === 'abnt' ? 'abnt' : 'turabian';
-  const abreviarNotas = !!opcoes.abreviarNotas;
+  // completa | abreviada | ibid  (o nome antigo continua aceito)
+  const repetidas = opcoes.repetidas || (opcoes.abreviarNotas ? 'abreviada' : 'completa');
+  let paginaAnterior = null;
 
   const corpo = [];
   const notas = [];
@@ -186,9 +188,15 @@ function gerar(livro, citacoes, opcoes = {}) {
     let marca = '';
 
     if (modelo === 'turabian') {
-      const primeira = idNota === 2 || !abreviarNotas;
-      const nota = R.gerar(livro, { pagina: c.pagina, capitulo: c.capitulo },
-                           primeira ? 'turabian-nota' : 'turabian-abrev').html;
+      const primeira = idNota === 2 || repetidas === 'completa';
+      let formato = 'turabian-nota';
+      let dados = { pagina: c.pagina, capitulo: c.capitulo };
+      if (!primeira) {
+        formato = repetidas === 'ibid' ? 'turabian-ibid' : 'turabian-abrev';
+        if (formato === 'turabian-ibid' && c.pagina === paginaAnterior) dados = { pagina: '' };
+      }
+      paginaAnterior = c.pagina;
+      const nota = R.gerar(livro, dados, formato).html;
       notas.push(
         `<w:footnote w:id="${idNota}"><w:p><w:pPr><w:pStyle w:val="Nota"/>` +
         `<w:spacing w:after="0" w:line="240" w:lineRule="auto"/></w:pPr>` +
@@ -208,7 +216,8 @@ function gerar(livro, citacoes, opcoes = {}) {
       celula(COLUNAS[0], paragrafo(corridas(puro(
         c.tipo === 'direta' ? 'Citação direta' : 'Citação indireta')), { depois: 0 })) +
       celula(COLUNAS[1], paragrafo(corridas(puro(c.assunto || c.capitulo || '')), { depois: 0 })) +
-      celula(COLUNAS[2], paragrafo(corridas(info) + marca, { depois: 0 })) +
+      // A terceira coluna — o texto da citação — sai centralizada.
+      celula(COLUNAS[2], paragrafo(corridas(info) + marca, { depois: 0, jc: 'center' })) +
       '</w:tr>');
   }
 

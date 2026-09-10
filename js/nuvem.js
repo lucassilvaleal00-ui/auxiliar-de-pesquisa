@@ -40,7 +40,10 @@
 
 const { db, Config, agora, gravarDaNuvem, apagarDaNuvem } = window.DB;
 
-const TABELAS = ['categorias', 'livros', 'citacoes'];
+// A ordem importa na hora de receber: pasta antes da citação que aponta para
+// ela. Não é fatal se chegar trocado (a citação aparece como solta e se
+// arruma na rodada seguinte), mas evita um piscar estranho na tela.
+const TABELAS = ['categorias', 'livros', 'pastas', 'citacoes'];
 
 /* Lote de envio. Precisa ser MENOR que a página de leitura (abaixo): todas as
    linhas de um mesmo lote recebem o mesmo `servidor_em`, e a leitura pagina
