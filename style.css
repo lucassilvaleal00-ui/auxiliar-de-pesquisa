@@ -370,3 +370,29 @@ body.so-leitura .citacao .acoes { display: none !important; }
   display: block; font-size: 13px; color: var(--tinta-fraca); margin-top: 3px;
   font-family: Georgia, "Times New Roman", serif;
 }
+
+/* ------------------------------------------------------------- a nuvem
+   Tarja discreta, num canto: quem está trabalhando não precisa acompanhar a
+   sincronização, só saber que ela existe e quando falhou. */
+.faixa-nuvem {
+  position: fixed; left: 10px; bottom: 10px; z-index: 60;
+  background: var(--papel); border: 1px solid var(--linha);
+  color: var(--tinta-fraca); font-size: 12px;
+  padding: 5px 10px; border-radius: 999px;
+  max-width: calc(100vw - 20px); overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap; opacity: .82;
+}
+.faixa-nuvem.com-erro {
+  color: #8a3b12; border-color: #e6b58f; background: #fff4ec;
+  white-space: normal; max-width: min(420px, calc(100vw - 20px)); opacity: 1;
+}
+[data-tema="escuro"] .faixa-nuvem.com-erro,
+:root[data-tema="escuro"] .faixa-nuvem.com-erro { color: #ffbe93; background: #3a2415; border-color: #6d452a; }
+@media (prefers-color-scheme: dark) {
+  :root:not([data-tema="claro"]) .faixa-nuvem.com-erro {
+    color: #ffbe93; background: #3a2415; border-color: #6d452a;
+  }
+}
+.faixa-nuvem .girando { display: inline-block; animation: girar 1s linear infinite; }
+@keyframes girar { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .faixa-nuvem .girando { animation: none; } }

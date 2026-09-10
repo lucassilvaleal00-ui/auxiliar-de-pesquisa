@@ -8,7 +8,7 @@
    >>> velhos que guardou, e o cliente não vê a sua correção.
    ========================================================================== */
 
-const VERSAO = 'v13';
+const VERSAO = 'v14';
 const CACHE = `auxiliar-pesquisa-${VERSAO}`;
 
 // Tudo o que o app precisa para abrir sem internet.
@@ -22,6 +22,7 @@ const ARQUIVOS = [
   './js/config-app.js',
   './js/db.js',
   './js/auth.js',
+  './js/nuvem.js',
   './js/fichamento.js',
   './js/referencias.js',
   './js/api.js',

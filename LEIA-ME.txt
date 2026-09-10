@@ -1,54 +1,55 @@
-ATUALIZAÇÃO v13 — colaboradores sem precisar nomear todos
-=========================================================
+FASE 5 — A BIBLIOTECA NA NUVEM (v14)
+====================================
 
-O que instalar
---------------
+>>> LEIA O PDF "A_BIBLIOTECA_NA_NUVEM.pdf" ANTES. São 4 páginas e o passo a
+>>> passo do Supabase está lá. Este arquivo é só o resumo.
+
+ORDEM DAS COISAS
+----------------
+1. No Supabase: SQL Editor → cole supabase/schema-nuvem.sql inteiro → Run.
+2. No GitHub: substitua os arquivos abaixo.
+3. No app: ⚙ Configurações → o quadro "Versão" tem que dizer v14.
+
+Se inverter a ordem não estraga nada — o app só vai mostrar um aviso
+alaranjado dizendo que as tabelas ainda não existem, até você rodar o SQL.
+
+ARQUIVOS PARA SUBSTITUIR
+------------------------
+    index.html         (na raiz)
     sw.js              (na raiz)
+    style.css          (na raiz)
     js/db.js
     js/app.js
-    js/referencias.js
+    js/auth.js
+    js/nuvem.js        <- ARQUIVO NOVO
 
-Depois: ⚙ Configurações → o quadro "Versão" precisa dizer v13.
+    supabase/schema-nuvem.sql   <- ARQUIVO NOVO (não vai para o GitHub;
+                                   é para colar no SQL Editor do Supabase)
 
-Agora a caixinha basta
-----------------------
-Marcar "Esta obra tem colaboradores" e não escrever nome nenhum já muda a
-referência:
+O js/config-app.js NÃO está aqui de propósito — guarda as suas chaves.
 
-    Turabian nota .......... com outros
-    Turabian bibliografia .. Com outros.
-    ABNT ................... Colaboração de outros.
+O QUE FOI FEITO
+---------------
+• A biblioteca sobe sozinha para a sua conta e desce em qualquer aparelho
+  onde você entrar. Capas inclusive.
+• Cada usuário só enxerga a própria biblioteca. Quem garante isso é o banco
+  (RLS), não o JavaScript — não dá para burlar pelo navegador.
+• O app continua abrindo e funcionando SEM INTERNET. O que mudou fica numa
+  fila e sobe quando a conexão voltar.
+• Editou a mesma obra em dois aparelhos? Vence a edição mais recente.
+• Excluiu uma obra? A exclusão viaja e ela não ressuscita no outro aparelho.
+• No primeiro login, se houver obras antigas no aparelho, o app pergunta
+  antes de mandá-las para a sua conta.
 
-E dentro do bloco há uma segunda caixinha, "e outros — não vou escrever todos
-os nomes", para quando você quiser citar o primeiro e encerrar:
+UMA OBSERVAÇÃO SOBRE "UM BANCO POR USUÁRIO"
+-------------------------------------------
+Você pediu bancos separados por usuário. No Supabase isso não existe do jeito
+pedido: o projeto tem um banco só. O que foi feito dá o mesmo resultado —
+tabelas únicas com a coluna usuario_id e a trava RLS ligada. Está explicado
+na primeira página do PDF.
 
-    com Arthur Spalding et al.
-    Colaboração de Arthur Spalding et al.
-
-Resumo de como sai
-------------------
-    caixinha marcada, nenhum nome ....... com outros
-    1 nome .............................. com Fulano
-    2 nomes ............................. com Fulano e Beltrano
-    3 nomes ............................. com Fulano, Beltrano e Sicrano
-    4 nomes ou mais ..................... com Fulano et al.
-    1 nome + "e outros" ................. com Fulano et al.
-
-O aviso sobre as normas (você pediu)
-------------------------------------
-Enquanto não houver nenhum nome escrito, aparece um aviso dentro do próprio
-cadastro dizendo, em resumo:
-
-  • o Turabian aceita "com outros" — o manual admite "and others" no lugar
-    de "et al.";
-  • a ABNT NBR 6023 NÃO prevê colaboração sem nome; ali isso vale como nota
-    livre, não como forma prevista pela norma;
-  • as duas normas pedem, no mínimo, o primeiro nome. Se o trabalho for
-    corrigido com rigor, escreva ao menos um.
-
-O aviso some sozinho assim que você escreve um nome.
-
-Banco de dados
---------------
-Sobe da versão 4 para a 5 sozinho, só para criar o campo novo nas obras que
-já existem. Nada é apagado.
+TESTE PRIMEIRO COM UMA CONTA DE MENTIRA
+---------------------------------------
+Antes de mexer na sua biblioteca de verdade, crie um usuário de teste pelo
+painel e faça a prova das três telas descrita na página 2 do PDF. É rápido e
+tira qualquer dúvida sobre o isolamento entre contas.
