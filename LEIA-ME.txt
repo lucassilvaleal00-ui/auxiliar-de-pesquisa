@@ -1,25 +1,54 @@
-ATUALIZAÇÃO v10 — o cartão da citação
-=====================================
+ATUALIZAÇÃO v13 — colaboradores sem precisar nomear todos
+=========================================================
 
 O que instalar
 --------------
-Três arquivos, nos mesmos lugares:
-
-    sw.js         (na raiz)
-    style.css     (na raiz)
+    sw.js              (na raiz)
+    js/db.js
     js/app.js
+    js/referencias.js
 
-Depois: ⚙ Configurações → o quadro "Versão" precisa dizer v10.
-Se disser v9, aperte "↻ Buscar atualização agora".
+Depois: ⚙ Configurações → o quadro "Versão" precisa dizer v13.
 
-O que mudou
------------
-1. "Citação direta" agora aparece. Antes só a indireta era escrita — a direta
-   ficava em branco, como se faltasse a informação. As duas aparecem sempre.
+Agora a caixinha basta
+----------------------
+Marcar "Esta obra tem colaboradores" e não escrever nome nenhum já muda a
+referência:
 
-2. A etiqueta da página ganhou a unidade: "502 pág.".
-   Citação sem página continua com o travessão (—), sem "pág." solto.
-   Em obra do tipo Bíblia, onde esse campo guarda a referência (João 3:16),
-   nada é acrescentado.
+    Turabian nota .......... com outros
+    Turabian bibliografia .. Com outros.
+    ABNT ................... Colaboração de outros.
 
-Nada mudou no banco de dados: esta atualização é só de tela.
+E dentro do bloco há uma segunda caixinha, "e outros — não vou escrever todos
+os nomes", para quando você quiser citar o primeiro e encerrar:
+
+    com Arthur Spalding et al.
+    Colaboração de Arthur Spalding et al.
+
+Resumo de como sai
+------------------
+    caixinha marcada, nenhum nome ....... com outros
+    1 nome .............................. com Fulano
+    2 nomes ............................. com Fulano e Beltrano
+    3 nomes ............................. com Fulano, Beltrano e Sicrano
+    4 nomes ou mais ..................... com Fulano et al.
+    1 nome + "e outros" ................. com Fulano et al.
+
+O aviso sobre as normas (você pediu)
+------------------------------------
+Enquanto não houver nenhum nome escrito, aparece um aviso dentro do próprio
+cadastro dizendo, em resumo:
+
+  • o Turabian aceita "com outros" — o manual admite "and others" no lugar
+    de "et al.";
+  • a ABNT NBR 6023 NÃO prevê colaboração sem nome; ali isso vale como nota
+    livre, não como forma prevista pela norma;
+  • as duas normas pedem, no mínimo, o primeiro nome. Se o trabalho for
+    corrigido com rigor, escreva ao menos um.
+
+O aviso some sozinho assim que você escreve um nome.
+
+Banco de dados
+--------------
+Sobe da versão 4 para a 5 sozinho, só para criar o campo novo nas obras que
+já existem. Nada é apagado.
