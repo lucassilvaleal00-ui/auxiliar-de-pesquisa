@@ -12,7 +12,7 @@ const R = window.Referencias;
 
 /* Precisa ser igual ao VERSAO do sw.js. Aparece em Configurações: é assim que
    se confere, num aparelho qualquer, se a última publicação já chegou. */
-const VERSAO_APP = 'v9';
+const VERSAO_APP = 'v10';
 
 /* --------------------------------------------------------------- atalhos */
 
@@ -846,17 +846,23 @@ async function desenharCitacoes() {
     return;
   }
 
+  // Numa obra do tipo Bíblia o campo "página" guarda a referência bíblica
+  // (João 3:16) — ali "pág." não faz sentido nenhum.
+  const ehBiblia = R.base(l) === 'biblia';
+
   alvo.innerHTML = lista.map(c => `
     <div class="citacao" data-cit="${c.id}">
       <div class="acoes">
         <button class="mini" data-editar title="Editar">✎</button>
         <button class="mini" data-excluir title="Excluir">🗑</button>
       </div>
-      <div class="pag">${esc(c.pagina || '—')}</div>
+      <div class="pag">${c.pagina
+        ? esc(c.pagina) + (ehBiblia ? '' : ' <span class="pag-un">pág.</span>')
+        : '—'}</div>
       <div class="texto">
         <p>${realce(esc(c.texto), termo)}</p>
         ${c.capitulo ? `<div class="cap">${esc(c.capitulo)}</div>` : ''}
-        ${c.tipo !== 'direta' ? '<div class="cap">citação indireta</div>' : ''}
+        <div class="cap">${c.tipo === 'direta' ? 'citação direta' : 'citação indireta'}</div>
         ${c.assunto ? `<div class="cap">assunto: ${esc(c.assunto)}</div>` : ''}
         ${c.nota_pessoal ? `<div class="cap">📝 ${esc(c.nota_pessoal)}</div>` : ''}
       </div>
