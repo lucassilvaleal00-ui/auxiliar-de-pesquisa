@@ -47,9 +47,10 @@ function norm(txt) {
 function indiceLivro(l) {
   const autores = (l.autores || []).map(a => `${a.nome || ''} ${a.sobrenome || ''}`).join(' ');
   const orgs = (l.organizadores || []).map(a => `${a.nome || ''} ${a.sobrenome || ''}`).join(' ');
+  const colabs = (l.colaboradores || []).map(a => `${a.nome || ''} ${a.sobrenome || ''}`).join(' ');
   return norm([l.titulo, l.subtitulo, l.titulo_original, autores, orgs,
                l.editora, l.periodico, l.instituicao, l.isbn, l.ano,
-               l.genero, l.sobre].join(' '));
+               l.genero, l.sobre, colabs, l.estado].join(' '));
 }
 
 function indiceCitacao(c) {
@@ -105,6 +106,27 @@ db.version(2).stores({}).upgrade(async tx => {
     if (l.formato === undefined) l.formato = '';
     if (l.genero === undefined) l.genero = '';
     if (l.sobre === undefined) l.sobre = '';
+  });
+});
+
+/* --------------------------------------------------------------------------
+   Versão 3 — estado e colaboradores (setembro de 2026)
+   --------------------------------------------------------------------------
+   Duas coisas que as normas pedem e faltavam:
+
+   • `estado` — a sigla que acompanha a cidade quando ela precisa de
+     desambiguação: "Belém, PA: ...", "Cambridge, MA: ...";
+   • `colaboradores` — pessoas que colaboraram sem serem autoras. Em Turabian
+     entram como "com Fulano"; na ABNT, como "Colaboração de Fulano".
+
+   Como os dois são campos novos (e não índices), o upgrade só garante que
+   existam nos registros antigos, para o resto do código não precisar ficar
+   perguntando se são nulos.
+-------------------------------------------------------------------------- */
+db.version(3).stores({}).upgrade(async tx => {
+  await tx.table('livros').toCollection().modify(l => {
+    if (l.estado === undefined) l.estado = '';
+    if (!Array.isArray(l.colaboradores)) l.colaboradores = [];
   });
 });
 
@@ -192,7 +214,8 @@ const Livros = {
       tipo: 'livro',
       titulo: '', subtitulo: '', titulo_original: '', titulo_obra: '',
       autores: [], organizadores: [], tradutores: [], revisores: [],
-      edicao: '', volume: '', ano: '', editora: '', cidade: '',
+      colaboradores: [],   // 'com Fulano' (Turabian) / 'Colaboração de Fulano' (ABNT)
+      edicao: '', volume: '', ano: '', editora: '', cidade: '', estado: '',
       periodico: '', numero: '', paginas: '',
       instituicao: '', grau: '',
       url: '', doi: '', issn: '', isbn: '',

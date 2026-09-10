@@ -446,6 +446,10 @@ $('#limpar-busca').onclick = () => {
 
 const CAMPO = {
   autores:        { rot: 'Autor ou autores', pessoas: true },
+  // Colaboradores só aparecem se a caixinha for marcada: a maioria das obras
+  // não tem, e um bloco a mais em toda ficha só atrapalharia.
+  colaboradores:  { rot: 'Colaboradores', pessoas: true,
+                    marca: 'Esta obra tem colaboradores (prefácio, ilustrações, notas…)' },
   organizadores:  { rot: 'Organizador(es) da coletânea', pessoas: true },
   tradutores:     { rot: 'Tradutor(es)', pessoas: true },
   revisores:      { rot: 'Revisor(es)', pessoas: true },
@@ -457,6 +461,8 @@ const CAMPO = {
   volume:         { rot: 'Volume', largura: 'meia' },
   ano:            { rot: 'Ano', largura: 'meia' },
   cidade:         { rot: 'Cidade da editora', largura: 'meia' },
+  estado:         { rot: 'Estado (sigla, ex.: SP)', largura: 'meia',
+                    dica: 'Opcional. Se preencher, a referência sai como "Belém, PA".' },
   editora:        { rot: 'Editora' },
   periodico:      { rot: 'Nome do periódico' },
   nome_site:      { rot: 'Nome do site', campo: 'periodico' },
@@ -480,12 +486,12 @@ const CAMPO = {
 };
 
 const CAMPOS_POR_TIPO = {
-  livro:    ['autores', 'titulo', 'subtitulo', 'titulo_original', 'tradutores', 'edicao', 'volume', 'cidade', 'editora', 'ano', 'isbn'],
-  capitulo: ['autores', 'titulo', 'titulo_obra', 'organizadores', 'tradutores', 'edicao', 'cidade', 'editora', 'ano', 'paginas'],
-  artigo:   ['autores', 'titulo', 'periodico', 'volume', 'numero', 'paginas', 'cidade', 'ano', 'doi', 'issn', 'url', 'data_acesso'],
-  tese:     ['autores', 'titulo', 'subtitulo', 'grau', 'area', 'instituicao', 'cidade', 'ano', 'url'],
-  site:     ['autores', 'titulo', 'subtitulo', 'nome_site', 'ano', 'url', 'data_acesso'],
-  biblia:   ['titulo', 'versao_biblia', 'tradutores', 'cidade', 'editora', 'ano']
+  livro:    ['autores', 'colaboradores', 'titulo', 'subtitulo', 'titulo_original', 'tradutores', 'edicao', 'volume', 'cidade', 'estado', 'editora', 'ano', 'isbn'],
+  capitulo: ['autores', 'colaboradores', 'titulo', 'titulo_obra', 'organizadores', 'tradutores', 'edicao', 'cidade', 'estado', 'editora', 'ano', 'paginas'],
+  artigo:   ['autores', 'colaboradores', 'titulo', 'periodico', 'volume', 'numero', 'paginas', 'cidade', 'estado', 'ano', 'doi', 'issn', 'url', 'data_acesso'],
+  tese:     ['autores', 'colaboradores', 'titulo', 'subtitulo', 'grau', 'area', 'instituicao', 'cidade', 'estado', 'ano', 'url'],
+  site:     ['autores', 'colaboradores', 'titulo', 'subtitulo', 'nome_site', 'ano', 'url', 'data_acesso'],
+  biblia:   ['titulo', 'versao_biblia', 'tradutores', 'cidade', 'estado', 'editora', 'ano']
 };
 
 // Estes três valem para qualquer tipo e alimentam o fichamento.
@@ -510,6 +516,17 @@ function blocoCampo(nome, livro, obrigatorios) {
   const def = CAMPO[nome];
   const chave = def.campo || nome;
   const obrig = obrigatorios.includes(chave) || (chave === 'titulo');
+
+  // Bloco de pessoas escondido atrás de uma caixinha de marcar.
+  if (def.pessoas && def.marca) {
+    const tem = Array.isArray(livro[chave]) && livro[chave].length > 0;
+    return `<label class="marca" style="display:block;margin:10px 0 2px">
+        <input type="checkbox" data-marca="${chave}" ${tem ? 'checked' : ''}> ${def.marca}
+      </label>
+      <div data-caixa="${chave}" ${tem ? '' : 'hidden'}>
+        ${blocoPessoas(chave, def.rot, livro[chave], false)}
+      </div>`;
+  }
   if (def.pessoas) return blocoPessoas(chave, def.rot, livro[chave], obrig);
 
   const valor = esc(livro[chave] || '');
@@ -525,7 +542,8 @@ function blocoCampo(nome, livro, obrigatorios) {
       (def.dica ? `<p class="dica">${def.dica}</p>` : '');
   }
   const tipo = def.data ? 'date' : 'text';
-  return rot + `<input type="${tipo}" data-c="${chave}" value="${valor}">`;
+  return rot + `<input type="${tipo}" data-c="${chave}" value="${valor}">` +
+    (def.dica ? `<p class="dica">${def.dica}</p>` : '');
 }
 
 /* ========================= FORMULÁRIO DA OBRA ========================== */
@@ -588,6 +606,16 @@ function formObra(livro = null, rascunho = null) {
       );
     };
 
+    $('#janela-corpo').querySelectorAll('[data-marca]').forEach(cx => {
+      cx.onchange = () => {
+        const chave = cx.dataset.marca;
+        colher();
+        // Desmarcar apaga os nomes; marcar abre o bloco já com uma linha vazia.
+        l[chave] = cx.checked ? (l[chave] && l[chave].length ? l[chave] : [{ nome: '', sobrenome: '' }]) : [];
+        desenhar();
+      };
+    });
+
     $('#janela-corpo').querySelectorAll('[data-add-pessoa]').forEach(b => {
       b.onclick = () => {
         colher();
@@ -628,6 +656,10 @@ function formObra(livro = null, rascunho = null) {
         nome: p.querySelector('[data-p="nome"]').value.trim(),
         sobrenome: p.querySelector('[data-p="sobrenome"]').value.trim()
       })).filter(p => p.nome || p.sobrenome);
+    });
+    // Caixinha desmarcada = lista vazia, mesmo que ainda haja nomes escondidos.
+    $('#janela-corpo').querySelectorAll('[data-marca]').forEach(cx => {
+      if (!cx.checked) l[cx.dataset.marca] = [];
     });
   }
 

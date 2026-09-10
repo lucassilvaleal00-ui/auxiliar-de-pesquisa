@@ -133,9 +133,19 @@
 
   const tituloCheio = l => [l.titulo, l.subtitulo].filter(x => (x || '').trim()).join(': ');
 
+  // "Belém, PA" — a sigla do estado só entra quando foi informada. Serve para
+  // desambiguar cidades homônimas, que é justamente para isso que as duas
+  // normas pedem o estado.
+  function local(l) {
+    const cidade = (l.cidade || '').trim();
+    const uf = (l.estado || '').trim();
+    if (!cidade) return '';
+    return uf ? `${cidade}, ${uf}` : cidade;
+  }
+
   // Cidade: Editora, ano  — com as marcas de ausência de cada norma
   function publicacaoTurabian(l) {
-    const cidade = (l.cidade || '').trim() || 'n.p.';
+    const cidade = local(l) || 'n.p.';
     const editora = (l.editora || '').trim();
     const ano = (l.ano || '').trim() || 'n.d.';
     return `${esc(cidade)}: ${editora ? esc(editora) : falta('editora')}, ${esc(ano)}`;
@@ -160,6 +170,17 @@
     const meses = ['jan.','fev.','mar.','abr.','maio','jun.','jul.','ago.','set.','out.','nov.','dez.'];
     if (!a || !m || !dia) return esc(d);
     return `${parseInt(dia, 10)} ${meses[parseInt(m, 10) - 1]} ${a}`;
+  }
+
+  // Colaboradores: gente que ajudou na obra sem assinar como autor.
+  // Turabian escreve "com Fulano"; a ABNT, "Colaboração de Fulano".
+  function colaboradores(l, modelo) {
+    const c = limpar(l.colaboradores);
+    if (!c.length) return '';
+    const nomes = c.length <= 3
+      ? c.slice(0, -1).map(direto).join(', ') + (c.length > 1 ? ' e ' : '') + direto(c[c.length - 1])
+      : direto(c[0]) + ' et al.';
+    return modelo === 'abnt' ? `Colaboração de ${esc(nomes)}.` : `com ${esc(nomes)}`;
   }
 
   const pg = p => String(p || '').trim();
@@ -192,6 +213,8 @@
     switch (l.tipo) {
       case 'livro': {
         const partes = [autores ? esc(autores) : falta('autor'), it(tituloCheio(l))];
+        const colab = colaboradores(l, 'turabian');
+        if (colab) partes.push(colab);
         if (trad) partes.push(trad);
         if (ed) partes.push(ed);
         if (vol) partes.push(vol);
@@ -202,6 +225,8 @@
         const partes = [autores ? esc(autores) : falta('autor'),
           `${aspV(tituloCheio(l))} in ${it(l.titulo_obra || '')}`];
         if (orgs.length) partes.push(`ed. ${esc(orgs.map(direto).join(' e '))}`);
+        const colabCap = colaboradores(l, 'turabian');
+        if (colabCap) partes.push(colabCap);
         if (ed) partes.push(ed);
         return pt(`${partes.join(', ')} (${publicacaoTurabian(l)})${p ? ', ' + esc(p) : ''}`);
       }
@@ -268,6 +293,8 @@
     switch (l.tipo) {
       case 'livro': {
         const p = [pt(autores ? esc(autores) : falta('autor')), pt(it(tituloCheio(l)))];
+        const colabBib = colaboradores(l, 'turabian');
+        if (colabBib) p.push(pt(colabBib.replace(/^com /, 'Com ')));
         if (trad) p.push(pt(trad));
         if (ed) p.push(pt(ed));
         if ((l.volume || '').trim()) p.push(`Vol. ${esc(l.volume)}.`);
@@ -315,7 +342,7 @@
 
   function abntRef(l) {
     const autores = juntarAbnt(l.autores);
-    const local = (l.cidade || '').trim() || '[s.l.]';
+    const localAbnt = local(l) || '[s.l.]';
     const editora = (l.editora || '').trim();
     const ano = (l.ano || '').trim() || '[s.d.]';
     const ed = edicaoAbnt(l);
@@ -328,8 +355,10 @@
       case 'livro': {
         const tit = l.subtitulo ? `${ng(l.titulo)}: ${esc(l.subtitulo)}` : ng(l.titulo);
         const vol = (l.volume || '').trim() ? ` v. ${esc(l.volume)}.` : '';
-        return `${pt(autores ? esc(autores) : falta('autor'))} ${pt(tit)} ${trad}` +
-               `${ed ? ed + ' ' : ''}${esc(local)}: ${editora ? esc(editora) : '[s.n.]'}, ${esc(ano)}.${vol}`;
+        const colabAbnt = colaboradores(l, 'abnt');
+        return `${pt(autores ? esc(autores) : falta('autor'))} ${pt(tit)} ` +
+               `${colabAbnt ? colabAbnt + ' ' : ''}${trad}` +
+               `${ed ? ed + ' ' : ''}${esc(localAbnt)}: ${editora ? esc(editora) : '[s.n.]'}, ${esc(ano)}.${vol}`;
       }
       case 'capitulo': {
         const orgs = limpar(l.organizadores);
@@ -337,7 +366,7 @@
           ? `${esc(juntarAbnt(orgs))} (org.). ` : falta('organizador') + ' ';
         return `${pt(autores ? esc(autores) : falta('autor'))} ${pt(esc(tituloCheio(l)))} ` +
                `In: ${quemOrg}${ng(l.titulo_obra || '')}. ${ed ? ed + ' ' : ''}` +
-               `${esc(local)}: ${editora ? esc(editora) : '[s.n.]'}, ${esc(ano)}.` +
+               `${esc(localAbnt)}: ${editora ? esc(editora) : '[s.n.]'}, ${esc(ano)}.` +
                `${(l.paginas || '').trim() ? ' p. ' + esc(l.paginas) + '.' : ''}`;
       }
       case 'artigo': {
@@ -347,7 +376,7 @@
         if ((l.paginas || '').trim()) partes.push(`p. ${esc(l.paginas)}`);
         partes.push(esc(ano));
         return `${pt(autores ? esc(autores) : falta('autor'))} ${pt(esc(tituloCheio(l)))} ` +
-               `${ng(l.periodico || '')}, ${esc(local)}, ${partes.join(', ')}.` +
+               `${ng(l.periodico || '')}, ${esc(localAbnt)}, ${partes.join(', ')}.` +
                `${(l.doi || '').trim() ? ' DOI: ' + esc(l.doi) + '.' : ''}${disp}${acesso}`;
       }
       case 'tese': {
@@ -363,7 +392,7 @@
         else                              trabalho = falta('grau');
         return `${pt(autores ? esc(autores) : falta('autor'))} ${pt(tit)} ${esc(ano)}. ` +
                `${trabalho} – ` +
-               `${l.instituicao ? esc(l.instituicao) : falta('instituição')}, ${esc(local)}, ${esc(ano)}.`;
+               `${l.instituicao ? esc(l.instituicao) : falta('instituição')}, ${esc(localAbnt)}, ${esc(ano)}.`;
       }
       case 'site': {
         const quem = autores ? pt(esc(autores)) + ' ' : '';
@@ -374,7 +403,7 @@
       case 'biblia': {
         return `BÍBLIA. Português. ${ng(l.titulo || 'Bíblia Sagrada')}. ` +
                `${(l.versao_biblia || '').trim() ? esc(l.versao_biblia) + '. ' : ''}${trad}` +
-               `${esc(local)}: ${editora ? esc(editora) : '[s.n.]'}, ${esc(ano)}.`;
+               `${esc(localAbnt)}: ${editora ? esc(editora) : '[s.n.]'}, ${esc(ano)}.`;
       }
     }
   }
