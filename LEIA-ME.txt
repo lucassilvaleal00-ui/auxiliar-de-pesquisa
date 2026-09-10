@@ -1,74 +1,25 @@
-ATUALIZAÇÃO v9 — janela trancada e os dez tipos de obra
-=======================================================
+ATUALIZAÇÃO v10 — o cartão da citação
+=====================================
 
 O que instalar
 --------------
-Substitua no repositório, nos mesmos lugares:
+Três arquivos, nos mesmos lugares:
 
-    sw.js                (na raiz)
-    style.css            (na raiz)
-    js/db.js
+    sw.js         (na raiz)
+    style.css     (na raiz)
     js/app.js
-    js/referencias.js
-    js/fichamento.js
 
-O js/config-app.js NÃO está aqui de propósito (guarda as suas chaves).
+Depois: ⚙ Configurações → o quadro "Versão" precisa dizer v10.
+Se disser v9, aperte "↻ Buscar atualização agora".
 
-Depois de publicar: ⚙ Configurações → o quadro "Versão" precisa dizer v9.
-Se disser v8, aperte "↻ Buscar atualização agora".
+O que mudou
+-----------
+1. "Citação direta" agora aparece. Antes só a indireta era escrita — a direta
+   ficava em branco, como se faltasse a informação. As duas aparecem sempre.
 
-1. As janelas não fecham mais por engano
-----------------------------------------
-Clicar no escuro em volta da janela não fecha mais nada — a janela só dá um
-tranco de leve, para mostrar que está trancada de propósito. A tecla Esc
-também não fecha. Sair é só pelo "Cancelar" ou pelo × do canto. Vale para
-todas as janelas: cadastrar obra, editar obra, categoria, citação, fichamento.
+2. A etiqueta da página ganhou a unidade: "502 pág.".
+   Citação sem página continua com o travessão (—), sem "pág." solto.
+   Em obra do tipo Bíblia, onde esse campo guarda a referência (João 3:16),
+   nada é acrescentado.
 
-O botão "voltar" do navegador continua fechando a janela, como antes — esse
-é um gesto proposital, não um clique acidental.
-
-2. Os tipos de obra
--------------------
-A lista passou a ser, nesta ordem:
-
-    1. Livro impresso
-    2. Livro digital (e-book)
-    3. Artigo Científico
-    4. Revista acadêmica
-    5. Revista
-    6. Tese
-    7. Dissertação
-    8. Página da internet
-    9. Bíblia
-   10. Capítulo de livro
-
-O décimo ficou no fim porque tem formatação própria nas normas (aquele
-"In: Título, editado por Fulano, p. 45-67"), e sem ele não dá para citar um
-capítulo de coletânea.
-
-No fichamento, "Tipo de Obra" passa a ser EXATAMENTE o tipo escolhido:
-"Livro impresso." — nada de gênero entre parênteses.
-
-Por isso os campos "Impressa ou digital" e "Gênero da obra" saíram do
-cadastro: o tipo já responde pelos dois. O cadastro ficou mais curto — em
-"Para o fichamento" sobra só "De que trata a obra".
-
-Também: Tese e Dissertação agora são tipos separados, então o campo "Grau"
-deixou de ser obrigatório. Escolhendo "Dissertação", a ABNT já escreve
-sozinha "Dissertação (Mestrado em Teologia) – FAAMA, Belém, 2024." Só
-preencha o Grau se for outra coisa, um TCC por exemplo.
-
-3. As obras que você já cadastrou
----------------------------------
-O banco sobe da versão 3 para a 4 sozinho, na primeira abertura, e converte
-cada obra para o nome novo:
-
-    Livro                → Livro impresso (ou Livro digital, se você tinha
-                           marcado "digital" no campo antigo)
-    Artigo de periódico  → Artigo Científico
-    Tese ou dissertação  → Dissertação, se o grau falava em mestrado;
-                           senão, Tese
-    Capítulo, Site e Bíblia continuam como estavam.
-
-Nada é apagado. Se alguma obra tiver caído no tipo errado, é só abrir e
-trocar no menu.
+Nada mudou no banco de dados: esta atualização é só de tela.
