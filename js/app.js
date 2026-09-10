@@ -12,7 +12,7 @@ const R = window.Referencias;
 
 /* Precisa ser igual ao VERSAO do sw.js. Aparece em Configurações: é assim que
    se confere, num aparelho qualquer, se a última publicação já chegou. */
-const VERSAO_APP = 'v14';
+const VERSAO_APP = 'v15';
 
 /* --------------------------------------------------------------- atalhos */
 
@@ -1284,6 +1284,14 @@ async function janelaFichamento(livro) {
       <option value="abnt">ABNT — com a chamada no próprio texto</option>
     </select>
 
+    <label class="rot" style="margin-top:10px">Formato do arquivo</label>
+    <select class="campo" id="fic-formato">
+      <option value="pdf">PDF — pronto para entregar ou imprimir</option>
+      <option value="docx">Word (.docx) — para continuar editando</option>
+    </select>
+    <p class="dica" id="fic-dica-formato">O PDF sai exatamente como você vê aqui,
+      e ninguém desconfigura sem querer.</p>
+
     <label class="marca" style="margin-top:10px">
       <input type="checkbox" id="fic-abreviar">
       Da segunda nota em diante, usar a forma abreviada
@@ -1321,23 +1329,40 @@ async function janelaFichamento(livro) {
     $('#fic-lista').querySelectorAll('[data-cit]').forEach(i => { i.checked = false; });
   $('[data-cancela-fic]').onclick = fecharJanela;
 
+  $('#fic-formato').onchange = e => {
+    const docx = e.target.value === 'docx';
+    $('[data-gerar-fic]').textContent = docx ? 'Gerar Word' : 'Gerar PDF';
+    $('#fic-dica-formato').innerHTML = docx
+      ? 'O arquivo abre no Word, no Google Docs e no LibreOffice. As notas de rodapé ' +
+        'são notas de verdade: numeram sozinhas e continuam certas se você acrescentar ' +
+        'um parágrafo antes.'
+      : 'O PDF sai exatamente como você vê aqui, e ninguém desconfigura sem querer.';
+  };
+
   $('[data-gerar-fic]').onclick = async function () {
     const escolhidas = marcadas();
     if (!escolhidas.length) return aviso('Marque ao menos uma citação.');
     this.disabled = true;
     const antes = this.textContent;
     this.textContent = 'Montando…';
+    const formato = $('#fic-formato').value;
+    const opcoes = {
+      modelo: $('#fic-modelo').value,
+      abreviarNotas: $('#fic-abreviar').checked
+    };
     try {
-      const { doc, nome } = window.Fichamento.gerar(livro, escolhidas, {
-        modelo: $('#fic-modelo').value,
-        abreviarNotas: $('#fic-abreviar').checked
-      });
-      doc.save(nome);
+      if (formato === 'docx') {
+        const { blob, nome } = window.Word.gerar(livro, escolhidas, opcoes);
+        baixarBlob(blob, nome);
+      } else {
+        const { doc, nome } = window.Fichamento.gerar(livro, escolhidas, opcoes);
+        doc.save(nome);
+      }
       fecharJanela();
       aviso(`Fichamento gerado com ${escolhidas.length} citação(ões).`, 4000);
     } catch (e) {
       console.error(e);
-      aviso('Não consegui montar o PDF: ' + e.message, 6000);
+      aviso(`Não consegui montar o ${formato === 'docx' ? 'Word' : 'PDF'}: ` + e.message, 6000);
     } finally {
       this.disabled = false; this.textContent = antes;
     }
@@ -1522,6 +1547,17 @@ $('#btn-config').onclick = async () => {
     location.reload();
   };
 };
+
+/* Entrega um arquivo ao usuário. Fica numa função só porque o navegador tem
+   uma exigência chata: o endereço temporário do arquivo precisa ser liberado
+   depois, senão a imagem/arquivo fica ocupando memória até fechar a aba. */
+function baixarBlob(blob, nome) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = nome;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
 
 async function exportarArquivo() {
   aviso('Preparando o arquivo…');
