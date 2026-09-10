@@ -12,7 +12,7 @@ const R = window.Referencias;
 
 /* Precisa ser igual ao VERSAO do sw.js. Aparece em Configurações: é assim que
    se confere, num aparelho qualquer, se a última publicação já chegou. */
-const VERSAO_APP = 'v10';
+const VERSAO_APP = 'v13';
 
 /* --------------------------------------------------------------- atalhos */
 
@@ -463,7 +463,8 @@ const CAMPO = {
   // Colaboradores só aparecem se a caixinha for marcada: a maioria das obras
   // não tem, e um bloco a mais em toda ficha só atrapalharia.
   colaboradores:  { rot: 'Colaboradores', pessoas: true,
-                    marca: 'Esta obra tem colaboradores (prefácio, ilustrações, notas…)' },
+                    marca: 'Esta obra tem colaboradores (prefácio, ilustrações, notas…)',
+                    outros: 'colaboradores_outros' },
   organizadores:  { rot: 'Organizador(es) da coletânea', pessoas: true },
   tradutores:     { rot: 'Tradutor(es)', pessoas: true },
   revisores:      { rot: 'Revisor(es)', pessoas: true },
@@ -534,12 +535,32 @@ function blocoCampo(nome, livro, obrigatorios) {
 
   // Bloco de pessoas escondido atrás de uma caixinha de marcar.
   if (def.pessoas && def.marca) {
-    const tem = Array.isArray(livro[chave]) && livro[chave].length > 0;
+    // A caixinha fica marcada se há nomes OU se foi dito que há outros: é o
+    // que permite marcá-la e não escrever ninguém, sem perder o estado.
+    const tem = (Array.isArray(livro[chave]) && livro[chave].length > 0) ||
+                (def.outros && !!livro[def.outros]);
     return `<label class="marca" style="display:block;margin:10px 0 2px">
         <input type="checkbox" data-marca="${chave}" ${tem ? 'checked' : ''}> ${def.marca}
       </label>
       <div data-caixa="${chave}" ${tem ? '' : 'hidden'}>
         ${blocoPessoas(chave, def.rot, livro[chave], false)}
+        ${def.outros ? `<label class="marca" style="display:block;margin:8px 0 0">
+            <input type="checkbox" data-c-bool="${def.outros}"
+              ${(livro[def.outros] && (livro[chave] || []).length) ? 'checked' : ''}>
+            e outros — não vou escrever todos os nomes
+          </label>
+          <p class="dica">Com um nome escrito, a referência sai como
+            <b>“com Fulano et al.”</b> (ABNT: “Colaboração de Fulano et al.”) —
+            a forma que as duas normas preveem quando os colaboradores são muitos.</p>
+          <div class="alerta" data-aviso-outros hidden>
+            Sem nenhum nome, a referência sai como <b>“com outros”</b>
+            (ABNT: “Colaboração de outros”).<br>
+            O Turabian aceita essa forma — o manual admite <i>and others</i> no lugar
+            de <i>et al.</i> —, mas a <b>ABNT NBR 6023 não prevê</b> colaboração sem nome:
+            ali isso vale como nota livre. As duas normas pedem, no mínimo,
+            <b>o primeiro nome</b>. Se o trabalho for corrigido com rigor,
+            escreva ao menos um.
+          </div>` : ''}
       </div>`;
   }
   if (def.pessoas) return blocoPessoas(chave, def.rot, livro[chave], obrig);
@@ -622,12 +643,30 @@ function formObra(livro = null, rascunho = null) {
       );
     };
 
+    // O aviso das normas acende e apaga conforme se escreve, sem redesenhar
+    // o formulário (redesenhar no meio da digitação tiraria o foco do campo).
+    $('#janela-corpo').querySelectorAll('[data-caixa]').forEach(caixa => {
+      const av = caixa.querySelector('[data-aviso-outros]');
+      if (!av) return;
+      const rever = () => {
+        const algumNome = Array.from(caixa.querySelectorAll('[data-p]'))
+          .some(i => i.value.trim());
+        av.hidden = !!algumNome;
+      };
+      caixa.addEventListener('input', rever);
+      rever();
+    });
+
     $('#janela-corpo').querySelectorAll('[data-marca]').forEach(cx => {
       cx.onchange = () => {
         const chave = cx.dataset.marca;
         colher();
         // Desmarcar apaga os nomes; marcar abre o bloco já com uma linha vazia.
         l[chave] = cx.checked ? (l[chave] && l[chave].length ? l[chave] : [{ nome: '', sobrenome: '' }]) : [];
+        // Marcar a caixinha grande não é o mesmo que pedir a forma abreviada:
+        // a sub-caixinha começa sempre desmarcada.
+        const def = CAMPO[chave];
+        if (def && def.outros && cx.checked) l[def.outros] = false;
         desenhar();
       };
     });
@@ -673,9 +712,23 @@ function formObra(livro = null, rascunho = null) {
         sobrenome: p.querySelector('[data-p="sobrenome"]').value.trim()
       })).filter(p => p.nome || p.sobrenome);
     });
-    // Caixinha desmarcada = lista vazia, mesmo que ainda haja nomes escondidos.
+    $('#janela-corpo').querySelectorAll('[data-c-bool]').forEach(cx => {
+      l[cx.dataset.cBool] = cx.checked;
+    });
     $('#janela-corpo').querySelectorAll('[data-marca]').forEach(cx => {
-      if (!cx.checked) l[cx.dataset.marca] = [];
+      const chave = cx.dataset.marca;
+      const def = CAMPO[chave];
+      if (!cx.checked) {
+        // Desmarcada: lista vazia, mesmo que ainda haja nomes escondidos no
+        // DOM — e o "e outros" cai junto, porque não sobrou ninguém.
+        l[chave] = [];
+        if (def && def.outros) l[def.outros] = false;
+      } else if (def && def.outros && !(l[chave] || []).length) {
+        // Marcada e sem nome nenhum: é o "tem colaboradores, mas não vou
+        // escrever". Sem gravar isso, a caixinha viria desmarcada da próxima
+        // vez, porque a lista de nomes está vazia.
+        l[def.outros] = true;
+      }
     });
   }
 

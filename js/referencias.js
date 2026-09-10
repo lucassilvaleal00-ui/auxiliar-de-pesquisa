@@ -223,11 +223,26 @@
   // Turabian escreve "com Fulano"; a ABNT, "Colaboração de Fulano".
   function colaboradores(l, modelo) {
     const c = limpar(l.colaboradores);
-    if (!c.length) return '';
-    const nomes = c.length <= 3
-      ? c.slice(0, -1).map(direto).join(', ') + (c.length > 1 ? ' e ' : '') + direto(c[c.length - 1])
-      : direto(c[0]) + ' et al.';
-    return modelo === 'abnt' ? `Colaboração de ${esc(nomes)}.` : `com ${esc(nomes)}`;
+    const outros = !!l.colaboradores_outros;
+    if (!c.length && !outros) return '';
+
+    let nomes;
+    if (!c.length) {
+      // Marcou que a obra tem colaboradores e não quis escrever nenhum nome.
+      // "com outros" é a forma que o Chicago/Turabian admite no lugar do
+      // "et al." (lá, "and others"). Ver o aviso no cadastro: as normas
+      // preferem que se escreva ao menos o primeiro nome.
+      nomes = 'outros';
+    } else if (c.length > 3 || outros) {
+      // Quatro ou mais — ou o atalho "e outros" — viram "Fulano et al.",
+      // que é a forma prevista pelas duas normas.
+      nomes = direto(c[0]) + ' et al.';
+    } else {
+      nomes = c.slice(0, -1).map(direto).join(', ') + (c.length > 1 ? ' e ' : '') + direto(c[c.length - 1]);
+    }
+    // `pt` em vez de um ponto fixo: "et al." já termina em ponto, e o extra
+    // virava "et al..".
+    return modelo === 'abnt' ? pt(`Colaboração de ${esc(nomes)}`) : `com ${esc(nomes)}`;
   }
 
   const pg = p => String(p || '').trim();

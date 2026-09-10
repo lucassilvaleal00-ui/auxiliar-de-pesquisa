@@ -159,6 +159,21 @@ db.version(4).stores({}).upgrade(async tx => {
 });
 
 /* --------------------------------------------------------------------------
+   Versão 5 — "e outros" nos colaboradores (setembro de 2026)
+   --------------------------------------------------------------------------
+   Uma obra pode ter uma dúzia de colaboradores, e as normas só pedem o
+   primeiro seguido de "et al." quando são quatro ou mais. Obrigar a digitar
+   os quatro só para chegar a essa forma era trabalho jogado fora; agora uma
+   caixinha diz "são muitos, não vou escrever todos" e a referência já sai
+   abreviada com um nome só.
+-------------------------------------------------------------------------- */
+db.version(5).stores({}).upgrade(async tx => {
+  await tx.table('livros').toCollection().modify(l => {
+    if (l.colaboradores_outros === undefined) l.colaboradores_outros = false;
+  });
+});
+
+/* --------------------------------------------------------------------------
    3. Categorias
    -------------------------------------------------------------------------- */
 
@@ -247,6 +262,7 @@ const Livros = {
       titulo: '', subtitulo: '', titulo_original: '', titulo_obra: '',
       autores: [], organizadores: [], tradutores: [], revisores: [],
       colaboradores: [],   // 'com Fulano' (Turabian) / 'Colaboração de Fulano' (ABNT)
+      colaboradores_outros: false,   // "são muitos": abrevia em "Fulano et al." 
       edicao: '', volume: '', ano: '', editora: '', cidade: '', estado: '',
       periodico: '', numero: '', paginas: '',
       instituicao: '', grau: '',
