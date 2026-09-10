@@ -1,61 +1,74 @@
-ATUALIZAÇÃO v8 — colaboradores, estado, "Livro impresso"
-========================================================
-
->>> IMPORTANTE: esta versão inclui TUDO o que estava na anterior (estado e
->>> colaboradores). Se a caixinha dos colaboradores não apareceu para você,
->>> era o navegador ainda servindo os arquivos velhos — veja abaixo.
+ATUALIZAÇÃO v9 — janela trancada e os dez tipos de obra
+=======================================================
 
 O que instalar
 --------------
 Substitua no repositório, nos mesmos lugares:
 
     sw.js                (na raiz)
+    style.css            (na raiz)
     js/db.js
     js/app.js
     js/referencias.js
     js/fichamento.js
 
-O js/config-app.js NÃO está aqui de propósito (guarda as suas chaves do
-Supabase).
+O js/config-app.js NÃO está aqui de propósito (guarda as suas chaves).
 
-Como conferir se chegou
------------------------
-Abra o app → engrenagem (⚙) → role até o fim. Agora há um quadro "Versão".
-Ele precisa dizer **v8**. Se disser v6 ou v7, aperte o botão
-"↻ Buscar atualização agora" logo abaixo: ele joga fora os arquivos guardados
-e recarrega o app do zero. Faça isso no celular também.
+Depois de publicar: ⚙ Configurações → o quadro "Versão" precisa dizer v9.
+Se disser v8, aperte "↻ Buscar atualização agora".
 
-Por que a caixinha não tinha aparecido
---------------------------------------
-O app guarda os arquivos no aparelho para funcionar sem internet. Quando você
-publica uma correção, a página que já está aberta continua usando o que estava
-guardado — só o SEGUNDO recarregamento pegava a novidade. A partir desta
-versão isso foi resolvido: assim que o app percebe que saiu versão nova, ele
-se recarrega sozinho, uma vez. E, se ainda assim algo travar, existe o botão
-manual em Configurações.
+1. As janelas não fecham mais por engano
+----------------------------------------
+Clicar no escuro em volta da janela não fecha mais nada — a janela só dá um
+tranco de leve, para mostrar que está trancada de propósito. A tecla Esc
+também não fecha. Sair é só pelo "Cancelar" ou pelo × do canto. Vale para
+todas as janelas: cadastrar obra, editar obra, categoria, citação, fichamento.
 
-O que mudou nesta rodada
-------------------------
-1. TIPO DE OBRA NO FICHAMENTO: sai "Livro impresso." mesmo quando o campo
-   "Impressa ou digital" não foi preenchido. Antes saía só "Livro." O tipo
-   nunca mais aparece sozinho. Obras novas já nascem marcadas como impressas
-   (basta trocar para "Digital" quando for o caso).
+O botão "voltar" do navegador continua fechando a janela, como antes — esse
+é um gesto proposital, não um clique acidental.
 
-2. VERSÃO VISÍVEL + BOTÃO DE ATUALIZAR em Configurações (descritos acima).
+2. Os tipos de obra
+-------------------
+A lista passou a ser, nesta ordem:
 
-E o que já vinha da entrega anterior
-------------------------------------
-3. ESTADO: campo "Estado (sigla, ex.: SP)" logo depois de "Cidade da editora".
-   Preenchido, a referência sai "Belém, PA"; vazio, sai só "Belém".
+    1. Livro impresso
+    2. Livro digital (e-book)
+    3. Artigo Científico
+    4. Revista acadêmica
+    5. Revista
+    6. Tese
+    7. Dissertação
+    8. Página da internet
+    9. Bíblia
+   10. Capítulo de livro
 
-4. COLABORADORES: caixinha "Esta obra tem colaboradores" logo abaixo do bloco
-   dos autores. Marcada, abre a lista de nomes.
-     Turabian (nota) ......... com Arthur Spalding
-     Turabian (bibliografia) . Com Arthur Spalding.
-     ABNT .................... Colaboração de Arthur Spalding.
-   Quatro ou mais: o primeiro seguido de "et al.".
+O décimo ficou no fim porque tem formatação própria nas normas (aquele
+"In: Título, editado por Fulano, p. 45-67"), e sem ele não dá para citar um
+capítulo de coletânea.
 
-Banco de dados no aparelho
---------------------------
-O IndexedDB sobe da versão 2 para a 3 sozinho na primeira abertura. A migração
-só acrescenta os campos novos vazios nas obras que já existem. Nada é apagado.
+No fichamento, "Tipo de Obra" passa a ser EXATAMENTE o tipo escolhido:
+"Livro impresso." — nada de gênero entre parênteses.
+
+Por isso os campos "Impressa ou digital" e "Gênero da obra" saíram do
+cadastro: o tipo já responde pelos dois. O cadastro ficou mais curto — em
+"Para o fichamento" sobra só "De que trata a obra".
+
+Também: Tese e Dissertação agora são tipos separados, então o campo "Grau"
+deixou de ser obrigatório. Escolhendo "Dissertação", a ABNT já escreve
+sozinha "Dissertação (Mestrado em Teologia) – FAAMA, Belém, 2024." Só
+preencha o Grau se for outra coisa, um TCC por exemplo.
+
+3. As obras que você já cadastrou
+---------------------------------
+O banco sobe da versão 3 para a 4 sozinho, na primeira abertura, e converte
+cada obra para o nome novo:
+
+    Livro                → Livro impresso (ou Livro digital, se você tinha
+                           marcado "digital" no campo antigo)
+    Artigo de periódico  → Artigo Científico
+    Tese ou dissertação  → Dissertação, se o grau falava em mestrado;
+                           senão, Tese
+    Capítulo, Site e Bíblia continuam como estavam.
+
+Nada é apagado. Se alguma obra tiver caído no tipo errado, é só abrir e
+trocar no menu.
