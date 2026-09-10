@@ -131,6 +131,34 @@ db.version(3).stores({}).upgrade(async tx => {
 });
 
 /* --------------------------------------------------------------------------
+   Versão 4 — a lista de tipos de obra cresceu (setembro de 2026)
+   --------------------------------------------------------------------------
+   Antes eram seis tipos genéricos; agora são dez, com o nome que aparece no
+   fichamento em "Tipo de Obra": Livro impresso, Livro digital (e-book),
+   Artigo Científico, Revista acadêmica, Revista, Tese, Dissertação, Página da
+   internet, Bíblia e Capítulo de livro.
+
+   Cada obra antiga precisa apontar para um dos nomes novos. Onde havia
+   informação para escolher, ela é usada:
+
+   • livro  → livro_digital se `formato` dizia "digital"; senão livro_impresso;
+   • artigo → artigo_cientifico (o mais comum na biblioteca do cliente);
+   • tese   → dissertacao quando o grau falava em mestrado; senão tese.
+
+   `capitulo`, `site` e `biblia` já tinham o nome certo e ficam como estão.
+   O `formato` e o `genero` antigos não são apagados: o tipo passou a dizer o
+   que eles diziam, mas jogar dado fora numa migração é o tipo de coisa que
+   não tem volta.
+-------------------------------------------------------------------------- */
+db.version(4).stores({}).upgrade(async tx => {
+  await tx.table('livros').toCollection().modify(l => {
+    if (l.tipo === 'livro')  l.tipo = l.formato === 'digital' ? 'livro_digital' : 'livro_impresso';
+    else if (l.tipo === 'artigo') l.tipo = 'artigo_cientifico';
+    else if (l.tipo === 'tese')   l.tipo = /mestrado/i.test(l.grau || '') ? 'dissertacao' : 'tese';
+  });
+});
+
+/* --------------------------------------------------------------------------
    3. Categorias
    -------------------------------------------------------------------------- */
 
@@ -188,17 +216,21 @@ const Categorias = {
 // assim mesmo e marcada como incompleta (decisão P19) — a busca automática
 // quase nunca traz edição e cidade, e travar o cadastro faria o cliente
 // perder o que digitou.
+// Por FAMÍLIA (livro, capitulo, artigo, tese, site, biblia) — os dez tipos
+// visíveis se reduzem a essas seis. O `grau` saiu da lista da tese: agora o
+// próprio tipo (Tese ou Dissertação) já responde por ele.
 const OBRIGATORIOS = {
   livro:    ['titulo', 'autores', 'editora'],
   capitulo: ['titulo', 'autores', 'titulo_obra', 'editora'],
   artigo:   ['titulo', 'autores', 'periodico', 'ano'],
-  tese:     ['titulo', 'autores', 'instituicao', 'ano', 'grau'],
+  tese:     ['titulo', 'autores', 'instituicao', 'ano'],
   site:     ['titulo', 'url'],
   biblia:   ['versao_biblia']
 };
 
 function faltando(l) {
-  const req = OBRIGATORIOS[l.tipo] || OBRIGATORIOS.livro;
+  const familia = window.Referencias ? window.Referencias.base(l) : l.tipo;
+  const req = OBRIGATORIOS[familia] || OBRIGATORIOS.livro;
   return req.filter(campo => {
     const v = l[campo];
     if (Array.isArray(v)) return v.length === 0;
@@ -211,7 +243,7 @@ const Livros = {
     return {
       id: uuid(),
       categoria_id: '',
-      tipo: 'livro',
+      tipo: 'livro_impresso',
       titulo: '', subtitulo: '', titulo_original: '', titulo_obra: '',
       autores: [], organizadores: [], tradutores: [], revisores: [],
       colaboradores: [],   // 'com Fulano' (Turabian) / 'Colaboração de Fulano' (ABNT)
@@ -220,8 +252,11 @@ const Livros = {
       instituicao: '', grau: '',
       url: '', doi: '', issn: '', isbn: '',
       data_acesso: '', versao_biblia: '',
-      formato: 'impresso', // impresso | digital  (aparece no fichamento)
-      genero: '',         // comentário bíblico, dicionário, manual…
+      // `formato` e `genero` são herança: quem diz se a obra é impressa ou
+      // digital agora é o próprio tipo. Ficam gravados para não quebrar
+      // backups antigos, mas não aparecem mais no cadastro nem no fichamento.
+      formato: '',
+      genero: '',
       sobre: '',          // "de que trata a obra", do modelo de fichamento
       capa: null,        // Blob da imagem (preferido)
       capa_url: '',      // reserva: quando o navegador barra o download da capa
@@ -502,7 +537,7 @@ async function semearExemplos() {
 
   const l1 = Livros.novo();
   Object.assign(l1, {
-    categoria_id: cat.id, tipo: 'livro',
+    categoria_id: cat.id, tipo: 'livro_impresso',
     titulo: 'O Grande Conflito', autores: [{ nome: 'Ellen G.', sobrenome: 'White' }],
     edicao: '3', cidade: 'Tatuí', editora: 'Casa Publicadora Brasileira', ano: '2007'
   });
@@ -510,7 +545,7 @@ async function semearExemplos() {
 
   const l2 = Livros.novo();
   Object.assign(l2, {
-    categoria_id: cat2.id, tipo: 'artigo',
+    categoria_id: cat2.id, tipo: 'artigo_cientifico',
     titulo: 'A pesquisa teológica e seus métodos',
     autores: [{ nome: 'Paulo', sobrenome: 'Zukowski' }],
     periodico: 'Revista Teológica', volume: '12', numero: '2',

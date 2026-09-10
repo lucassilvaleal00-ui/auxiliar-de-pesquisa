@@ -12,7 +12,7 @@ const R = window.Referencias;
 
 /* Precisa ser igual ao VERSAO do sw.js. Aparece em Configurações: é assim que
    se confere, num aparelho qualquer, se a última publicação já chegou. */
-const VERSAO_APP = 'v8';
+const VERSAO_APP = 'v9';
 
 /* --------------------------------------------------------------- atalhos */
 
@@ -79,8 +79,18 @@ function fecharJanela(porHistorico) {
 }
 
 $('#janela-fechar').addEventListener('click', fecharJanela);
-$('#fundo').addEventListener('click', e => { if (e.target.id === 'fundo') fecharJanela(); });
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#fundo').hidden) fecharJanela(); });
+
+// A janela é TRANCADA de propósito: clicar no escuro em volta não fecha nada,
+// e a tecla Esc também não. Perder um cadastro pela metade por causa de um
+// clique fora foi reclamação do cliente — sair é só pelo × ou pelo Cancelar.
+// Em vez de fechar, a janela dá um tranco de leve, para não parecer travada.
+$('#fundo').addEventListener('mousedown', e => {
+  if (e.target.id !== 'fundo') return;
+  const j = $('#fundo .janela');
+  j.classList.remove('chacoalha');
+  void j.offsetWidth;               // reinicia a animação
+  j.classList.add('chacoalha');
+});
 
 function confirmar(titulo, texto, rotuloOk = 'Confirmar', perigo = true) {
   return new Promise(resolve => {
@@ -473,7 +483,8 @@ const CAMPO = {
   numero:         { rot: 'Número/fascículo', largura: 'meia' },
   paginas:        { rot: 'Páginas (ex.: 45-67)', largura: 'meia' },
   instituicao:    { rot: 'Instituição' },
-  grau:           { rot: 'Grau', opcoes: ['', 'dissertação de mestrado', 'tese de doutorado', 'trabalho de conclusão de curso'] },
+  grau:           { rot: 'Grau', opcoes: ['', 'dissertação de mestrado', 'tese de doutorado', 'trabalho de conclusão de curso'],
+                    dica: 'Só se for diferente do tipo escolhido — um TCC, por exemplo. Em branco, vale o tipo.' },
   area:           { rot: 'Área (ex.: Teologia)' },
   url:            { rot: 'Endereço na internet (URL)' },
   doi:            { rot: 'DOI', largura: 'meia' },
@@ -481,14 +492,14 @@ const CAMPO = {
   isbn:           { rot: 'ISBN', largura: 'meia' },
   data_acesso:    { rot: 'Data de acesso', data: true, largura: 'meia' },
   versao_biblia:  { rot: 'Versão/tradução (ex.: ARA, NVI)' },
-  // campos que o fichamento usa
-  formato:        { rot: 'Impressa ou digital', opcoes: ['', 'impresso', 'digital'],
-                    nomes: { '': '—', impresso: 'Impressa', digital: 'Digital' }, largura: 'meia' },
-  genero:         { rot: 'Gênero da obra (ex.: comentário bíblico)', largura: 'meia' },
+  // O que o fichamento usa. "Impressa ou digital" e "gênero da obra" saíram
+  // daqui: quem responde por eles agora é o próprio tipo da obra.
   sobre:          { rot: 'De que trata a obra', area: true,
                     dica: 'Uma ou duas frases. É o que sai no fichamento, em "De que trata a obra".' }
 };
 
+// Indexado pela FAMÍLIA da obra (R.base), não pelo tipo visível: "Livro
+// impresso" e "Livro digital" pedem exatamente os mesmos campos.
 const CAMPOS_POR_TIPO = {
   livro:    ['autores', 'colaboradores', 'titulo', 'subtitulo', 'titulo_original', 'tradutores', 'edicao', 'volume', 'cidade', 'estado', 'editora', 'ano', 'isbn'],
   capitulo: ['autores', 'colaboradores', 'titulo', 'titulo_obra', 'organizadores', 'tradutores', 'edicao', 'cidade', 'estado', 'editora', 'ano', 'paginas'],
@@ -498,8 +509,8 @@ const CAMPOS_POR_TIPO = {
   biblia:   ['titulo', 'versao_biblia', 'tradutores', 'cidade', 'estado', 'editora', 'ano']
 };
 
-// Estes três valem para qualquer tipo e alimentam o fichamento.
-const CAMPOS_FICHAMENTO = ['formato', 'genero', 'sobre'];
+// Vale para qualquer tipo e alimenta o fichamento.
+const CAMPOS_FICHAMENTO = ['sobre'];
 
 function linhaPessoa(p = { nome: '', sobrenome: '' }) {
   return `<div class="pessoa">
@@ -563,11 +574,12 @@ function formObra(livro = null, rascunho = null) {
   const desenhar = () => {
     // Quais campos ganham o asterisco de obrigatório, por tipo de obra.
     // (A obra pode ser salva sem eles — fica marcada como incompleta, P19.)
+    const familia = R.base(l);
     const exigidos = {
       livro: ['titulo', 'autores', 'editora'], capitulo: ['titulo', 'autores', 'titulo_obra', 'editora'],
-      artigo: ['titulo', 'autores', 'periodico', 'ano'], tese: ['titulo', 'autores', 'instituicao', 'ano', 'grau'],
+      artigo: ['titulo', 'autores', 'periodico', 'ano'], tese: ['titulo', 'autores', 'instituicao', 'ano'],
       site: ['titulo', 'url'], biblia: ['versao_biblia']
-    }[l.tipo] || [];
+    }[familia] || [];
 
     $('#janela-corpo').innerHTML = `
       ${livro ? '' : `<button class="btn" data-buscar-api style="width:100%">🔎 Buscar no Google Books / Open Library</button>
@@ -584,7 +596,7 @@ function formObra(livro = null, rascunho = null) {
         ${estado.categorias.map(c => `<option value="${c.id}" ${l.categoria_id === c.id ? 'selected' : ''}>${esc(c.titulo)}</option>`).join('')}
       </select>
 
-      ${CAMPOS_POR_TIPO[l.tipo].map(n => blocoCampo(n, l, exigidos)).join('')}
+      ${(CAMPOS_POR_TIPO[familia] || CAMPOS_POR_TIPO.livro).map(n => blocoCampo(n, l, exigidos)).join('')}
 
       <h3 style="margin-top:18px">Para o fichamento</h3>
       ${CAMPOS_FICHAMENTO.map(n => blocoCampo(n, l, exigidos)).join('')}
@@ -675,7 +687,7 @@ function formObra(livro = null, rascunho = null) {
   $('[data-cancelar]').onclick = fecharJanela;
   $('[data-salvar]').onclick = async () => {
     colher();
-    if (!l.titulo && l.tipo !== 'biblia') return aviso('A obra precisa de um título.');
+    if (!l.titulo && R.base(l) !== 'biblia') return aviso('A obra precisa de um título.');
 
     if (!livro) {
       const igual = await Livros.duplicada(l);
@@ -788,7 +800,7 @@ async function telaObra(id, semHistorico = false) {
       <div class="obra-dados">
         <h2>${esc(l.titulo || 'Sem título')}${l.subtitulo ? ': ' + esc(l.subtitulo) : ''}</h2>
         <div class="linha">${esc(autoresCurto(l))}</div>
-        <div class="linha">${esc(R.TIPOS.find(t => t.id === l.tipo)?.nome || '')}
+        <div class="linha">${esc(R.nomeDoTipo(l))}
           ${l.ano ? ' · ' + esc(l.ano) : ''}${l.editora ? ' · ' + esc(l.editora) : ''}
           ${cat ? ' · ' + esc(cat.titulo) : ' · sem categoria'}</div>
         ${falta.length ? `<div class="alerta">Referência incompleta — falta: ${esc(falta.join(', '))}.</div>` : ''}
@@ -890,7 +902,7 @@ $('#busca-citacoes').addEventListener('input', () => {
 function formCitacao(livro, citacao = null) {
   if (!podeEditar()) return avisoLeitura();
   const c = citacao ? { ...citacao } : Citacoes.novo(livro.id);
-  const ehBiblia = livro.tipo === 'biblia';
+  const ehBiblia = R.base(livro) === 'biblia';
 
   abrirJanela(citacao ? 'Editar citação' : 'Nova citação', `
     <label class="rot">Texto da citação <span class="obrig">*</span></label>
@@ -1194,9 +1206,9 @@ async function janelaFichamento(livro) {
   const citacoes = await Citacoes.porLivro(livro.id);
   if (!citacoes.length) return aviso('Esta obra ainda não tem citações para o fichamento.');
 
+  // O tipo da obra já responde pelo "Tipo de Obra" do fichamento; o único
+  // campo que ainda pode faltar é o resumo.
   const faltando = [];
-  // Sem esse campo o fichamento assume "impresso"; vale avisar, mas sem susto.
-  if (!livro.formato) faltando.push('se a obra é impressa ou digital (vai sair como impressa)');
   if (!livro.sobre) faltando.push('de que trata a obra');
 
   abrirJanela('Gerar fichamento', `
@@ -1204,7 +1216,7 @@ async function janelaFichamento(livro) {
 
     ${faltando.length ? `<div class="alerta">
        Falta preencher, no cadastro da obra: <b>${esc(faltando.join(' e '))}</b>.
-       Dá para gerar assim mesmo, mas esses campos aparecem no cabeçalho do fichamento.
+       Dá para gerar assim mesmo, mas esse campo aparece no cabeçalho do fichamento.
      </div>` : ''}
 
     <label class="rot">Modelo</label>

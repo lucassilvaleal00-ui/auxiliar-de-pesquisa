@@ -8,7 +8,9 @@
      abnt-ref             ABNT NBR 6023, entrada de referências
      abnt-autordata       ABNT, chamada no meio do texto: (WHITE, 2007, p. 45)
 
-   Seis tipos de obra (decisão P18): livro, capitulo, artigo, tese, site, biblia.
+   Dez tipos visíveis (Livro impresso, Livro digital, Artigo Científico...),
+   reduzidos a seis famílias que as normas reconhecem: livro, capitulo,
+   artigo, tese, site, biblia. Ver TIPOS logo abaixo.
 
    Cada função devolve HTML — é o HTML que carrega o itálico do Turabian e o
    negrito da ABNT até o Word (decisão P21).
@@ -24,14 +26,59 @@
     { id: 'abnt-autordata',  nome: 'ABNT — citação no texto',      curto: 'ABNT autor-data' }
   ];
 
+  /* ------------------------------------------------------------ tipos de obra
+     Duas camadas, e a distinção importa:
+
+     • `nome` é o que o usuário escolhe e o que sai no fichamento, em
+       "Tipo de Obra" — por isso "Livro impresso" e "Livro digital (e-book)"
+       são opções separadas, e não um livro com um campo "formato" ao lado.
+     • `base` é a família que as normas reconhecem. Turabian e ABNT formatam
+       um artigo científico e uma reportagem de revista do mesmo jeito; o que
+       muda é só o nome que damos a eles. Todo o gerador olha para a base.
+  --------------------------------------------------------------------------*/
   const TIPOS = [
-    { id: 'livro',    nome: 'Livro' },
-    { id: 'capitulo', nome: 'Capítulo de livro' },
-    { id: 'artigo',   nome: 'Artigo de periódico' },
-    { id: 'tese',     nome: 'Tese ou dissertação' },
-    { id: 'site',     nome: 'Site ou página da internet' },
-    { id: 'biblia',   nome: 'Bíblia' }
+    { id: 'livro_impresso',    nome: 'Livro impresso',        base: 'livro' },
+    { id: 'livro_digital',     nome: 'Livro digital (e-book)', base: 'livro' },
+    { id: 'artigo_cientifico', nome: 'Artigo Científico',     base: 'artigo' },
+    { id: 'revista_academica', nome: 'Revista acadêmica',     base: 'artigo' },
+    { id: 'revista',           nome: 'Revista',               base: 'artigo' },
+    { id: 'tese',              nome: 'Tese',                  base: 'tese' },
+    { id: 'dissertacao',       nome: 'Dissertação',           base: 'tese' },
+    { id: 'site',              nome: 'Página da internet',    base: 'site' },
+    { id: 'biblia',            nome: 'Bíblia',                base: 'biblia' },
+    { id: 'capitulo',          nome: 'Capítulo de livro',     base: 'capitulo' }
   ];
+
+  // Nomes antigos, de antes de a lista crescer. Ficam aqui para que uma obra
+  // gravada na versão anterior — ou vinda de um backup antigo — continue
+  // gerando referência certa mesmo que a migração ainda não tenha rodado.
+  const LEGADO = { livro: 'livro', artigo: 'artigo', tese: 'tese' };
+
+  /** A família da obra: livro · capitulo · artigo · tese · site · biblia. */
+  function base(l) {
+    const id = (l && l.tipo) || '';
+    const t = TIPOS.find(x => x.id === id);
+    return t ? t.base : (LEGADO[id] || 'livro');
+  }
+
+  /** O nome visível — é o que o fichamento escreve em "Tipo de Obra". */
+  function nomeDoTipo(l) {
+    const t = TIPOS.find(x => x.id === ((l && l.tipo) || ''));
+    if (t) return t.nome;
+    // obra antiga, antes da migração: mostra algo razoável em vez de vazio
+    return { livro: 'Livro impresso', artigo: 'Artigo Científico',
+             tese: 'Tese' }[(l && l.tipo) || ''] || 'Obra';
+  }
+
+  /* Turabian e ABNT precisam saber o grau do trabalho acadêmico. Agora o
+     próprio tipo já diz: só perguntamos quando é outra coisa (um TCC). */
+  function grauDe(l) {
+    const g = (l.grau || '').trim();
+    if (g) return g;
+    if (l.tipo === 'dissertacao') return 'dissertação de mestrado';
+    if (l.tipo === 'tese') return 'tese de doutorado';
+    return '';
+  }
 
   /* ---------------------------------------------------------------- nomes */
 
@@ -210,7 +257,7 @@
     const ed = edicaoTurabian(l);
     const vol = (l.volume || '').trim() ? `vol. ${esc(l.volume)}` : '';
 
-    switch (l.tipo) {
+    switch (base(l)) {
       case 'livro': {
         const partes = [autores ? esc(autores) : falta('autor'), it(tituloCheio(l))];
         const colab = colaboradores(l, 'turabian');
@@ -243,7 +290,7 @@
                `${link ? ', ' + link : ''}`);
       }
       case 'tese': {
-        const grau = (l.grau || '').trim() || 'tese';
+        const grau = grauDe(l) || 'tese';
         return pt(`${autores ? esc(autores) : falta('autor')}, ${asp(tituloCheio(l))} ` +
                `(${esc(grau)}, ${l.instituicao ? esc(l.instituicao) : falta('instituição')}, ` +
                `${esc((l.ano || '').trim() || 'n.d.')})${p ? ', ' + esc(p) : ''}`);
@@ -266,16 +313,16 @@
   function turabianAbrev(l, o) {
     const p = pg(o.pagina);
     const sn = sobrenomeCurto(l.autores);
-    const t = abreviar(l.tipo === 'capitulo' ? l.titulo : (l.titulo || l.titulo_obra));
+    const t = abreviar(base(l) === 'capitulo' ? l.titulo : (l.titulo || l.titulo_obra));
 
-    if (l.tipo === 'biblia') {
+    if (base(l) === 'biblia') {
       const v = (l.versao_biblia || '').trim();
       return `${esc(refBiblia(l, o))}${v ? ' (' + esc(v) + ')' : ''}.`;
     }
     // Livro leva itálico; capítulo, artigo, tese e site levam aspas — e a
     // vírgula que antecede a página fica DENTRO das aspas.
-    const marca = (l.tipo === 'livro') ? it(t) : (p ? aspV(t) : asp(t));
-    if (l.tipo !== 'livro' && p)
+    const marca = (base(l) === 'livro') ? it(t) : (p ? aspV(t) : asp(t));
+    if (base(l) !== 'livro' && p)
       return pt(`${sn ? esc(sn) + ', ' : ''}${marca} ${esc(p)}`);
     // Sem autor (comum em site), a nota curta entra pelo título.
     const inicio = sn ? esc(sn) + ', ' : '';
@@ -290,7 +337,7 @@
       ? `Traduzido por ${esc(limpar(l.tradutores).map(direto).join(' e '))}.` : '';
     const ed = edicaoTurabian(l);
 
-    switch (l.tipo) {
+    switch (base(l)) {
       case 'livro': {
         const p = [pt(autores ? esc(autores) : falta('autor')), pt(it(tituloCheio(l)))];
         const colabBib = colaboradores(l, 'turabian');
@@ -323,7 +370,7 @@
       }
       case 'tese': {
         return `${pt(autores ? esc(autores) : falta('autor'))} "${esc(tituloCheio(l))}." ` +
-               `${esc((l.grau || 'Tese').replace(/^./, c => c.toUpperCase()))}, ` +
+               `${esc((grauDe(l) || 'Tese').replace(/^./, c => c.toUpperCase()))}, ` +
                `${l.instituicao ? esc(l.instituicao) : falta('instituição')}, ` +
                `${esc((l.ano || '').trim() || 'n.d.')}.`;
       }
@@ -351,7 +398,7 @@
     const acesso = (l.data_acesso || '').trim() ? ` Acesso em: ${dataAcessoAbnt(l)}.` : '';
     const disp = (l.url || '').trim() ? ` Disponível em: ${esc(l.url)}.` : '';
 
-    switch (l.tipo) {
+    switch (base(l)) {
       case 'livro': {
         const tit = l.subtitulo ? `${ng(l.titulo)}: ${esc(l.subtitulo)}` : ng(l.titulo);
         const vol = (l.volume || '').trim() ? ` v. ${esc(l.volume)}.` : '';
@@ -383,12 +430,12 @@
         const tit = l.subtitulo ? `${ng(l.titulo)}: ${esc(l.subtitulo)}` : ng(l.titulo);
         // ABNT escreve o tipo do trabalho e, entre parênteses, o grau:
         // "Dissertação (Mestrado em Teologia) – Instituição, Cidade, ano."
-        const g = (l.grau || '').toLowerCase();
+        const g = grauDe(l).toLowerCase();
         const area = (l.area || '').trim();
         let trabalho;
         if (g.includes('mestrado'))      trabalho = `Dissertação (Mestrado${area ? ' em ' + esc(area) : ''})`;
         else if (g.includes('doutorado')) trabalho = `Tese (Doutorado${area ? ' em ' + esc(area) : ''})`;
-        else if (g)                       trabalho = esc(l.grau.replace(/^./, c => c.toUpperCase()));
+        else if (g)                       trabalho = esc(grauDe(l).replace(/^./, c => c.toUpperCase()));
         else                              trabalho = falta('grau');
         return `${pt(autores ? esc(autores) : falta('autor'))} ${pt(tit)} ${esc(ano)}. ` +
                `${trabalho} – ` +
@@ -412,12 +459,12 @@
 
   function abntAutorData(l, o) {
     const p = pg(o.pagina);
-    if (l.tipo === 'biblia') {
+    if (base(l) === 'biblia') {
       const ref = refBiblia(l, o);
       return `(${esc(ref.toUpperCase())}${(l.versao_biblia || '').trim() ? ', ' + esc(l.versao_biblia) : ''})`;
     }
     const quem = sobrenomeAbnt(l.autores) ||
-                 (l.tipo === 'site' ? (l.periodico || l.instituicao || '').toUpperCase() : '');
+                 (base(l) === 'site' ? (l.periodico || l.instituicao || '').toUpperCase() : '');
     const ano = (l.ano || '').trim() || '[s.d.]';
     return `(${quem ? esc(quem) : falta('autor')}, ${esc(ano)}${p ? ', p. ' + esc(p) : ''})`;
   }
@@ -476,10 +523,11 @@
       chave(x).localeCompare(chave(y), 'pt-BR') ||
       (x.titulo || '').localeCompare(y.titulo || '', 'pt-BR'));
     return ordenados
-      .filter(l => !(l.tipo === 'biblia' && formato === 'turabian-bib'))
+      .filter(l => !(base(l) === 'biblia' && formato === 'turabian-bib'))
       .map(l => gerar(l, {}, formato).html);
   }
 
-  window.Referencias = { FORMATOS, TIPOS, gerar, gerarBibliografia, htmlParaTexto, abreviar };
+  window.Referencias = { FORMATOS, TIPOS, base, nomeDoTipo, grauDe,
+                         gerar, gerarBibliografia, htmlParaTexto, abreviar };
 
 })();
