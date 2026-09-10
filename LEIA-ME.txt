@@ -1,42 +1,61 @@
-ATUALIZAÇÃO — Estado da cidade e colaboradores
-==============================================
+ATUALIZAÇÃO v8 — colaboradores, estado, "Livro impresso"
+========================================================
 
-O que mudou
------------
-1. ESTADO: no cadastro da obra, logo depois de "Cidade da editora", há agora
-   "Estado (sigla, ex.: SP)". Se você preencher, a referência sai como
-   "Belém, PA"; se deixar em branco, sai só "Belém", como antes.
+>>> IMPORTANTE: esta versão inclui TUDO o que estava na anterior (estado e
+>>> colaboradores). Se a caixinha dos colaboradores não apareceu para você,
+>>> era o navegador ainda servindo os arquivos velhos — veja abaixo.
 
-2. COLABORADORES: logo abaixo do bloco dos autores há uma caixinha —
-   "Esta obra tem colaboradores". Só quando ela é marcada é que aparece a
-   lista de nomes (com o botão "+ acrescentar pessoa", igual à dos autores).
-   Desmarcar a caixinha apaga os nomes.
-
-   Nas referências eles entram assim:
-     Turabian (nota) ......... com Arthur Spalding
-     Turabian (bibliografia) . Com Arthur Spalding.
-     ABNT .................... Colaboração de Arthur Spalding.
-   Com quatro ou mais colaboradores, sai o primeiro seguido de "et al.".
-
-Como instalar no GitHub
------------------------
-Substitua no seu repositório os 4 arquivos desta pasta, nos mesmos lugares:
+O que instalar
+--------------
+Substitua no repositório, nos mesmos lugares:
 
     sw.js                (na raiz)
     js/db.js
     js/app.js
     js/referencias.js
+    js/fichamento.js
 
-O arquivo js/config-app.js NÃO está aqui de propósito — ele guarda as suas
-chaves do Supabase e não deve ser sobrescrito.
+O js/config-app.js NÃO está aqui de propósito (guarda as suas chaves do
+Supabase).
 
-Depois de publicar, abra o app e atualize a página uma vez (no celular, feche
-e abra o app). O sw.js já vem com a versão v7, então o navegador troca os
-arquivos velhos sozinho.
+Como conferir se chegou
+-----------------------
+Abra o app → engrenagem (⚙) → role até o fim. Agora há um quadro "Versão".
+Ele precisa dizer **v8**. Se disser v6 ou v7, aperte o botão
+"↻ Buscar atualização agora" logo abaixo: ele joga fora os arquivos guardados
+e recarrega o app do zero. Faça isso no celular também.
 
-Sobre o banco de dados no aparelho
-----------------------------------
-O IndexedDB sobe da versão 2 para a 3 na primeira vez que o app abrir.
-A migração só acrescenta os dois campos novos (estado vazio e lista de
-colaboradores vazia) nas obras que já existem. Nada é apagado, e obras
-gravadas antes continuam abrindo normalmente.
+Por que a caixinha não tinha aparecido
+--------------------------------------
+O app guarda os arquivos no aparelho para funcionar sem internet. Quando você
+publica uma correção, a página que já está aberta continua usando o que estava
+guardado — só o SEGUNDO recarregamento pegava a novidade. A partir desta
+versão isso foi resolvido: assim que o app percebe que saiu versão nova, ele
+se recarrega sozinho, uma vez. E, se ainda assim algo travar, existe o botão
+manual em Configurações.
+
+O que mudou nesta rodada
+------------------------
+1. TIPO DE OBRA NO FICHAMENTO: sai "Livro impresso." mesmo quando o campo
+   "Impressa ou digital" não foi preenchido. Antes saía só "Livro." O tipo
+   nunca mais aparece sozinho. Obras novas já nascem marcadas como impressas
+   (basta trocar para "Digital" quando for o caso).
+
+2. VERSÃO VISÍVEL + BOTÃO DE ATUALIZAR em Configurações (descritos acima).
+
+E o que já vinha da entrega anterior
+------------------------------------
+3. ESTADO: campo "Estado (sigla, ex.: SP)" logo depois de "Cidade da editora".
+   Preenchido, a referência sai "Belém, PA"; vazio, sai só "Belém".
+
+4. COLABORADORES: caixinha "Esta obra tem colaboradores" logo abaixo do bloco
+   dos autores. Marcada, abre a lista de nomes.
+     Turabian (nota) ......... com Arthur Spalding
+     Turabian (bibliografia) . Com Arthur Spalding.
+     ABNT .................... Colaboração de Arthur Spalding.
+   Quatro ou mais: o primeiro seguido de "et al.".
+
+Banco de dados no aparelho
+--------------------------
+O IndexedDB sobe da versão 2 para a 3 sozinho na primeira abertura. A migração
+só acrescenta os campos novos vazios nas obras que já existem. Nada é apagado.
