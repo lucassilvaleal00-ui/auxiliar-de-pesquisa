@@ -12,7 +12,7 @@ const R = window.Referencias;
 
 /* Precisa ser igual ao VERSAO do sw.js. Aparece em Configurações: é assim que
    se confere, num aparelho qualquer, se a última publicação já chegou. */
-const VERSAO_APP = 'v13';
+const VERSAO_APP = 'v14';
 
 /* --------------------------------------------------------------- atalhos */
 
@@ -1368,6 +1368,12 @@ function janelaConta() {
     if (!await confirmar('Sair da conta',
       'Sua biblioteca <b>continua guardada neste aparelho</b> — nada será apagado. ' +
       'Você vai precisar do e-mail e da senha para entrar de novo.', 'Sair', false)) return;
+    if (window.Nuvem && Nuvem.LIGADA) {
+      // Uma última tentativa de subir o que ainda não subiu, para nada ficar
+      // preso neste aparelho. Se não der, os dados continuam aqui de todo jeito.
+      try { await Nuvem.sincronizar(); } catch { /* segue */ }
+      await Nuvem.aoSair();
+    }
     Auth.sair();
     location.reload();
   };
@@ -1414,6 +1420,16 @@ $('#btn-config').onclick = async () => {
     <button class="btn" data-exemplos style="width:100%;margin-bottom:8px">Carregar dados de exemplo</button>
     <button class="btn perigo" data-apagar style="width:100%">Apagar tudo deste aparelho</button>
 
+    ${(window.Nuvem && Nuvem.LIGADA) ? `
+    <h3 style="margin-top:18px">Sincronização</h3>
+    <p class="dica" id="cfg-nuvem">—</p>
+    <button class="btn" data-sincronizar style="width:100%;margin-bottom:8px">↻ Sincronizar agora</button>
+    <button class="btn" data-nuvem-rebaixar style="width:100%">Baixar tudo de novo da minha conta</button>
+    <p class="dica">"Baixar tudo de novo" serve quando este aparelho parece estar
+      desatualizado: ele esquece o que já conversou e confere a biblioteca inteira,
+      registro por registro. Não apaga nada — o que existe só aqui continua aqui e
+      sobe na mesma passada.</p>` : ''}
+
     <h3 style="margin-top:18px">Versão</h3>
     <p class="dica">Este aparelho está com a versão <b id="versao-app">${VERSAO_APP}</b>.
       Se você acabou de publicar uma correção e ela não aparece, use o botão abaixo.</p>
@@ -1428,6 +1444,44 @@ $('#btn-config').onclick = async () => {
 
   $('[data-fechar4]').onclick = fecharJanela;
   $('[data-exportar]').onclick = exportarArquivo;
+
+  const cfgNuvem = $('#cfg-nuvem');
+  if (cfgNuvem) {
+    const pintar = () => {
+      const e = Nuvem.estado;
+      cfgNuvem.innerHTML = e.rodando ? 'Sincronizando agora…'
+        : e.erro ? `<b>Última tentativa falhou:</b> ${esc(e.erro)}`
+        : e.ultimo ? `Última sincronização: ${esc(new Date(e.ultimo).toLocaleString('pt-BR'))}`
+        : 'Este aparelho ainda não sincronizou.';
+    };
+    pintar();
+    const solta = Nuvem.aoMudar(pintar);
+    $('[data-sincronizar]').onclick = async () => {
+      aviso('Sincronizando…', 3000);
+      const r = await Nuvem.sincronizar();
+      pintar();
+      if (r && r.erro) return aviso('Não deu certo: ' + r.erro, 6000);
+      await recarregar();
+      aviso(`Pronto. ${r.enviados || 0} enviado(s), ${r.recebidos || 0} recebido(s).`, 4000);
+    };
+    $('[data-nuvem-rebaixar]').onclick = async () => {
+      if (!await confirmar('Conferir a biblioteca inteira',
+        'Vou comparar cada obra e cada citação deste aparelho com a sua conta. ' +
+        'Pode demorar um pouco se a biblioteca for grande. <b>Nada é apagado.</b>',
+        'Conferir tudo', false)) return;
+      await Nuvem.esquecerMarcadores();
+      await Nuvem.marcarPrimeiraResolvida();
+      aviso('Conferindo tudo…', 4000);
+      const r = await Nuvem.sincronizar();
+      pintar();
+      await recarregar();
+      aviso(r && r.erro ? 'Não deu certo: ' + r.erro
+        : `Conferido. ${r.enviados || 0} enviado(s), ${r.recebidos || 0} recebido(s).`, 5000);
+    };
+    // a janela é descartada ao fechar; o ouvinte tem que ir junto
+    const fecharAntes = aoFechar;
+    aoFechar = () => { solta(); if (fecharAntes) fecharAntes(); };
+  }
   $('[data-atualizar]').onclick = async () => {
     aviso('Procurando versão nova…', 4000);
     try {
@@ -1455,9 +1509,15 @@ $('#btn-config').onclick = async () => {
     aviso(criou ? 'Exemplos carregados.' : 'Você já tem obras cadastradas.');
   };
   $('[data-apagar]').onclick = async () => {
+    const naNuvem = window.Nuvem && Nuvem.LIGADA;
     if (!await confirmar('Apagar tudo',
       'Todas as categorias, obras e citações <b>deste aparelho</b> serão apagadas. ' +
-      'Exporte um arquivo antes se quiser guardar. Isso não tem como desfazer.', 'Apagar tudo')) return;
+      'Exporte um arquivo antes se quiser guardar. Isso não tem como desfazer.' +
+      (naNuvem ? '<br><br><span class="dica">A sua conta na nuvem <b>não</b> é apagada: ' +
+                 'ao abrir de novo, o aparelho baixa a biblioteca outra vez. Para apagar ' +
+                 'de verdade, exclua as obras uma a uma — aí sim a exclusão viaja para os ' +
+                 'outros aparelhos.</span>' : ''),
+      'Apagar tudo')) return;
     await window.DB.db.delete();
     location.reload();
   };
@@ -1603,7 +1663,71 @@ async function entrarNoApp() {
   mostrarTela('tela-inicio');
   estado.telaAtual = 'inicio';
   await recarregar();
+  ligarNuvem(lic);
   return true;
+}
+
+/* ------------------------------------------------------------- a nuvem
+   Roda depois que a tela já está de pé: sincronizar é coisa de segundo
+   plano e não pode atrasar a abertura do aplicativo.
+--------------------------------------------------------------------------*/
+async function ligarNuvem(lic) {
+  if (!window.Nuvem || !Nuvem.LIGADA) return;
+  if (lic.estado !== 'ok' && lic.estado !== 'leitura') return;
+
+  await Nuvem.carregarUltimo();
+  Nuvem.aoMudar(pintarNuvem);
+  Nuvem.aoReceber = () => recarregar();
+  pintarNuvem(Nuvem.estado);
+
+  // Licença vencida não envia nada — mas continua BAIXANDO, para a pessoa
+  // poder consultar de outro aparelho o que já era dela.
+  const orfas = await Nuvem.acervoLocalOrfao();
+  if (orfas > 0) { await perguntarAcervoLocal(orfas); return; }
+
+  Nuvem.sincronizar().then(r => { if (r && r.recebidos) recarregar(); });
+}
+
+async function perguntarAcervoLocal(quantas) {
+  const sim = await confirmar('Enviar sua biblioteca para a conta',
+    `Encontrei <b>${quantas} obra(s)</b> cadastradas neste aparelho de antes da ` +
+    `sincronização existir.<br><br>Quer enviá-las para a sua conta? ` +
+    `Depois disso elas aparecem em qualquer aparelho onde você entrar.<br><br>` +
+    `<span class="dica">Se este aparelho for emprestado e as obras não forem suas, ` +
+    `responda "Agora não" — elas continuam aqui, sem ir para lugar nenhum.</span>`,
+    'Enviar para a minha conta', false);
+
+  if (sim) await Nuvem.adotarAcervoLocal();
+  else {
+    // Não envia agora, mas também não pergunta a cada abertura. O botão em
+    // Configurações continua disponível quando ele mudar de ideia.
+    await Nuvem.marcarPrimeiraResolvida();
+    aviso('Tudo bem — nada foi enviado. Dá para fazer isso depois, em Configurações.', 5000);
+    return;
+  }
+  Nuvem.sincronizar().then(r => { if (r && r.recebidos) recarregar(); });
+}
+
+/* A tarja discreta que diz como está a conversa com a nuvem. */
+function pintarNuvem(e) {
+  const el = $('#faixa-nuvem');
+  if (!el) return;
+  if (!e.ligada) { el.hidden = true; return; }
+  el.hidden = false;
+  el.classList.toggle('com-erro', !!e.erro);
+  if (e.rodando) { el.innerHTML = '<span class="girando">↻</span> sincronizando…'; return; }
+  if (e.erro)    { el.innerHTML = `⚠ ${esc(e.erro)}`; return; }
+  el.textContent = e.ultimo
+    ? `✓ sincronizado ${quandoFoi(e.ultimo)}`
+    : '· ainda não sincronizado';
+}
+
+function quandoFoi(iso) {
+  const seg = Math.max(0, (Date.now() - new Date(iso)) / 1000);
+  if (seg < 60)   return 'agora';
+  if (seg < 3600) return `há ${Math.floor(seg / 60)} min`;
+  if (seg < 86400) return `há ${Math.floor(seg / 3600)} h`;
+  return 'em ' + new Date(iso).toLocaleDateString('pt-BR');
 }
 
 $('#btn-conta').onclick = janelaConta;

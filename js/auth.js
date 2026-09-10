@@ -255,7 +255,7 @@ function descreverLicenca(lic) {
 }
 
 window.Auth = {
-  LIGADO, PLANOS, BASE,
+  LIGADO, PLANOS, BASE, ANON,
   entrar, sair, primeiroAcesso, recuperarSenha,
   situacao, descreverLicenca,
   sessao: lerSessao, renovarSePreciso, chamar, traduzir

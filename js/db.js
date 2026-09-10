@@ -57,6 +57,22 @@ function indiceCitacao(c) {
   return norm([c.texto, c.capitulo, c.assunto, c.nota_pessoal].join(' '));
 }
 
+/* Avisa a nuvem que houve mudança. Fica aqui, no banco, e não espalhado pelas
+   telas: assim nenhum caminho novo de gravação esquece de avisar. A checagem
+   é feita na hora da chamada porque o nuvem.js carrega depois deste arquivo. */
+function mexeu() {
+  if (window.Nuvem && window.Nuvem.LIGADA) window.Nuvem.agendar();
+}
+
+/** Anota que um registro foi excluído, para a nuvem levar a notícia adiante. */
+async function enterrar(tabela, ids) {
+  const lista = (Array.isArray(ids) ? ids : [ids]).filter(Boolean);
+  if (!lista.length) return;
+  const quando = agora();
+  await db.excluidos.bulkPut(lista.map(id => ({ id, tabela, atualizado_em: quando })));
+  mexeu();
+}
+
 /* --------------------------------------------------------------------------
    2. O banco
    --------------------------------------------------------------------------
@@ -174,6 +190,22 @@ db.version(5).stores({}).upgrade(async tx => {
 });
 
 /* --------------------------------------------------------------------------
+   Versão 6 — as lápides (setembro de 2026)
+   --------------------------------------------------------------------------
+   A partir daqui a biblioteca sobe para a nuvem, e apagar passa a ser um
+   problema novo: se a obra simplesmente sumisse daqui, o outro aparelho — que
+   ainda a tem — a mandaria de volta na próxima sincronização e ela
+   ressuscitaria. Por isso toda exclusão deixa uma LÁPIDE: um registrinho
+   dizendo "esta morreu, e quando".
+
+   A lápide não atrapalha nada do que já existia: as telas continuam lendo as
+   tabelas de sempre, que continuam sendo limpas de verdade.
+-------------------------------------------------------------------------- */
+db.version(6).stores({
+  excluidos: 'id, tabela, atualizado_em'
+});
+
+/* --------------------------------------------------------------------------
    3. Categorias
    -------------------------------------------------------------------------- */
 
@@ -199,6 +231,7 @@ const Categorias = {
       atualizado_em: agora()
     };
     await db.categorias.add(cat);
+    mexeu();
     return cat;
   },
 
@@ -206,15 +239,17 @@ const Categorias = {
     if (dados.titulo !== undefined && !dados.titulo.trim())
       throw new Error('A categoria precisa de um título.');
     await db.categorias.update(id, { ...dados, atualizado_em: agora() });
+    mexeu();
   },
 
   // Excluir NUNCA apaga obra nenhuma (decisão P17). As obras ficam sem
   // categoria e reaparecem em "Sem categoria".
   async excluir(id) {
-    return db.transaction('rw', db.categorias, db.livros, async () => {
+    return db.transaction('rw', db.categorias, db.livros, db.excluidos, async () => {
       await db.livros.where('categoria_id').equals(id)
                      .modify({ categoria_id: '', atualizado_em: agora() });
       await db.categorias.delete(id);
+      await enterrar('categorias', id);
     });
   },
 
@@ -290,6 +325,7 @@ const Livros = {
     livro.atualizado_em = agora();
     if (!livro.criado_em) livro.criado_em = livro.atualizado_em;
     await db.livros.put(livro);
+    mexeu();
     return livro;
   },
 
@@ -315,13 +351,19 @@ const Livros = {
   // Apagar a obra apaga as citações dela — as duas coisas na mesma transação,
   // para nunca sobrar citação órfã se o navegador fechar no meio.
   async excluir(id) {
-    return db.transaction('rw', db.livros, db.citacoes, async () => {
+    return db.transaction('rw', db.livros, db.citacoes, db.excluidos, async () => {
+      // As citações também precisam de lápide, uma a uma: o outro aparelho
+      // não tem como adivinhar que elas foram junto com a obra.
+      const filhas = await db.citacoes.where('livro_id').equals(id).primaryKeys();
       await db.citacoes.where('livro_id').equals(id).delete();
       await db.livros.delete(id);
+      await enterrar('citacoes', filhas);
+      await enterrar('livros', id);
     });
   },
 
   async mover(ids, categoria_id) {
+    mexeu();
     return db.transaction('rw', db.livros, async () => {
       for (const id of ids) {
         await db.livros.update(id, { categoria_id, atualizado_em: agora() });
@@ -370,6 +412,7 @@ const Citacoes = {
     c.atualizado_em = agora();
     if (!c.criado_em) c.criado_em = c.atualizado_em;
     await db.citacoes.put(c);
+    mexeu();
     return c;
   },
 
@@ -396,7 +439,12 @@ const Citacoes = {
     return db.citacoes.where('livro_id').equals(livro_id).count();
   },
 
-  async excluir(id) { return db.citacoes.delete(id); },
+  async excluir(id) {
+    return db.transaction('rw', db.citacoes, db.excluidos, async () => {
+      await db.citacoes.delete(id);
+      await enterrar('citacoes', id);
+    });
+  },
 
   // A pesquisa avançada (decisão P15): procura a frase dentro do texto de
   // todas as citações e devolve junto a obra de cada uma.
@@ -519,6 +567,7 @@ async function importarTudo(dados, modo = 'juntar') {
       await db.categorias.bulkPut(dados.categorias || []);
       await db.livros.bulkPut(livros);
       await db.citacoes.bulkPut(dados.citacoes || []);
+      mexeu();
       return { categorias: (dados.categorias || []).length, livros: livros.length,
                citacoes: (dados.citacoes || []).length, ignorados: 0 };
     }
@@ -537,6 +586,7 @@ async function importarTudo(dados, modo = 'juntar') {
     const c1 = await mesclar(db.categorias, dados.categorias || []);
     const c2 = await mesclar(db.livros, livros);
     const c3 = await mesclar(db.citacoes, dados.citacoes || []);
+    mexeu();
     return { categorias: c1, livros: c2, citacoes: c3, ignorados };
   });
 }
@@ -587,9 +637,29 @@ async function semearExemplos() {
 }
 
 /* Exposto para o resto do app e para você testar no console do navegador. */
+/* Grava um registro que veio da nuvem, recalculando o que é derivado (índice
+   de busca, marca de incompleta). Não mexe em `atualizado_em`: a data que vale
+   é a de quem editou, não a de quem recebeu. */
+async function gravarDaNuvem(tabela, registro) {
+  if (tabela === 'livros') {
+    registro.busca = indiceLivro(registro);
+    registro.incompleta = faltando(registro).length ? 1 : 0;
+  } else if (tabela === 'citacoes') {
+    registro.busca = indiceCitacao(registro);
+  }
+  await db.table(tabela).put(registro);
+}
+
+/* Apaga um registro porque a nuvem avisou que ele morreu — sem criar lápide
+   nova (a notícia já veio de fora; devolvê-la daria uma volta sem fim). */
+async function apagarDaNuvem(tabela, id) {
+  await db.table(tabela).delete(id);
+}
+
 window.DB = {
   db, uuid, norm, agora,
   Categorias, Livros, Citacoes, Config,
   exportarTudo, importarTudo, semearExemplos,
-  pedirPersistencia, espacoUsado, FORMATO_BACKUP
+  pedirPersistencia, espacoUsado, FORMATO_BACKUP,
+  enterrar, gravarDaNuvem, apagarDaNuvem
 };
