@@ -407,3 +407,34 @@ body.so-leitura .citacao .acoes { display: none !important; }
 .fic-pasta b { font-size: 14px; }
 .fic-pasta small { color: var(--tinta-fraca); font-size: 12px; }
 .fic-grupo .fic-item { margin-left: 14px; }
+
+/* ------------------------------------------------------------- subpastas */
+#obra-subpastas { margin: 4px 0 12px; }
+.caminho {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  font-size: 15px; margin-bottom: 8px;
+}
+.caminho .espaco { flex: 1; }
+.subpastas { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.sub {
+  display: flex; align-items: center; gap: 2px;
+  border: 1px solid var(--linha); background: var(--papel);
+  border-radius: 999px; padding: 2px 4px 2px 2px;
+}
+.sub.ativa { border-color: var(--marca); background: var(--marca-clara); }
+.sub-nome {
+  border: 0; background: transparent; color: var(--tinta); cursor: pointer;
+  font-size: 14px; padding: 5px 8px; font-family: inherit; white-space: nowrap;
+}
+.sub .mini { font-size: 13px; padding: 3px 5px; }
+.sub .conta { opacity: .65; font-size: 12px; }
+
+/* --------------------------------------------------- seleção de citações */
+.citacao .marca-cit { flex: 0 0 auto; display: flex; align-items: center; padding: 0 4px; }
+.citacao .marca-cit input { width: 20px; height: 20px; }
+.citacao.marcado { outline: 2px solid var(--marca); }
+body:has(#barra-selecao-cit:not([hidden])) .citacao { cursor: pointer; }
+
+/* subpasta recuada dentro do fichamento */
+.fic-grupo.sub { margin-left: 16px; }
+.fic-grupo.sub .fic-pasta { background: var(--papel); }
