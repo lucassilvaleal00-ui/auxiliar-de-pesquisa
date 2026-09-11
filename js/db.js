@@ -234,6 +234,35 @@ db.version(7).stores({
 });
 
 /* --------------------------------------------------------------------------
+   Versão 8 — subpastas (setembro de 2026)
+   --------------------------------------------------------------------------
+   As pastas ganharam um pai. Dois níveis, e só dois:
+
+     Obra
+      └── pasta mestra  ("Miqueias")        pai_id = ''
+           ├── subpasta ("Autores")         pai_id = <id da mestra>
+           ├── subpasta ("Datação")
+           └── citações soltas na mestra
+
+   Por que parar em dois: é o que o cliente descreveu (um tema, e dentro dele
+   os assuntos), e cada nível a mais custa uma dobra na barra de navegação,
+   no seletor de destino e no fichamento. Três níveis não foram pedidos e
+   pagariam esse preço sem ninguém precisar.
+
+   `pai_id` entra como índice porque a tela pergunta o tempo todo "quais são
+   as filhas desta?" — e o Dexie recusa filtrar por campo sem índice (foi
+   exatamente o erro que derrubou a v7 na primeira tentativa).
+-------------------------------------------------------------------------- */
+db.version(8).stores({
+  pastas: 'id, livro_id, pai_id, ordem, atualizado_em'
+}).upgrade(async tx => {
+  await tx.table('pastas').toCollection().modify(p => {
+    // toda pasta que já existia vira mestra
+    if (p.pai_id === undefined) p.pai_id = '';
+  });
+});
+
+/* --------------------------------------------------------------------------
    3. Categorias
    -------------------------------------------------------------------------- */
 
@@ -426,6 +455,7 @@ const Livros = {
    -------------------------------------------------------------------------- */
 
 const Pastas = {
+  /** Todas as pastas da obra, mestras e subpastas. */
   async porLivro(livro_id) {
     const lista = await db.pastas.where('livro_id').equals(livro_id).toArray();
     lista.sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0) ||
@@ -433,13 +463,33 @@ const Pastas = {
     return lista;
   },
 
+  /** Só as mestras (as que aparecem na barra horizontal). */
+  async mestras(livro_id) {
+    return (await this.porLivro(livro_id)).filter(p => !(p.pai_id || ''));
+  },
+
+  /** As subpastas de uma mestra. */
+  async filhas(pai_id) {
+    const lista = await db.pastas.where('pai_id').equals(pai_id).toArray();
+    lista.sort((a, b) => (a.ordem ?? 0) - (b.ordem ?? 0) ||
+                          (a.titulo || '').localeCompare(b.titulo || '', 'pt-BR'));
+    return lista;
+  },
+
   async obter(id) { return db.pastas.get(id); },
 
-  async criar({ livro_id, titulo }) {
+  async criar({ livro_id, titulo, pai_id = '' }) {
     if (!titulo || !titulo.trim()) throw new Error('A pasta precisa de um nome.');
-    const quantas = await db.pastas.where('livro_id').equals(livro_id).count();
+    // Dois níveis é o limite: pedir subpasta de subpasta vira mestra do mesmo
+    // pai, em vez de criar um terceiro nível pelas costas de quem usa.
+    if (pai_id) {
+      const pai = await db.pastas.get(pai_id);
+      if (pai && (pai.pai_id || '')) pai_id = pai.pai_id;
+    }
+    const irmas = await db.pastas.where('pai_id').equals(pai_id)
+                                 .filter(p => p.livro_id === livro_id).count();
     const pasta = {
-      id: uuid(), livro_id, titulo: titulo.trim(), ordem: quantas,
+      id: uuid(), livro_id, pai_id, titulo: titulo.trim(), ordem: irmas,
       criado_em: agora(), atualizado_em: agora()
     };
     await db.pastas.add(pasta);
@@ -454,17 +504,51 @@ const Pastas = {
     mexeu();
   },
 
-  async excluir(id) {
+  /**
+   * Excluir uma pasta leva junto as subpastas dela — mas o que acontece com as
+   * CITAÇÕES é escolha de quem está excluindo (pergunta feita na tela):
+   *   comCitacoes = false → voltam a ficar soltas na obra (padrão seguro)
+   *   comCitacoes = true  → são apagadas de verdade, sem volta
+   */
+  async excluir(id, { comCitacoes = false } = {}) {
     return db.transaction('rw', db.pastas, db.citacoes, db.excluidos, async () => {
-      await db.citacoes.where('pasta_id').equals(id)
-                       .modify({ pasta_id: '', atualizado_em: agora() });
-      await db.pastas.delete(id);
-      await enterrar('pastas', id);
+      const filhas = await db.pastas.where('pai_id').equals(id).primaryKeys();
+      const todas = [id, ...filhas];
+
+      if (comCitacoes) {
+        const alvo = await db.citacoes.where('pasta_id').anyOf(todas).primaryKeys();
+        await db.citacoes.where('pasta_id').anyOf(todas).delete();
+        await enterrar('citacoes', alvo);
+      } else {
+        await db.citacoes.where('pasta_id').anyOf(todas)
+                         .modify({ pasta_id: '', atualizado_em: agora() });
+      }
+
+      await db.pastas.where('id').anyOf(todas).delete();
+      await enterrar('pastas', todas);
     });
   },
 
-  async contar(id) {
+  /** Citações guardadas NESTA pasta, sem contar as das subpastas. */
+  async contarDiretas(id) {
     return db.citacoes.where('pasta_id').equals(id).count();
+  },
+
+  /** Citações desta pasta somadas às das subpastas — é o que a barra mostra. */
+  async contarTudo(id) {
+    const filhas = await db.pastas.where('pai_id').equals(id).primaryKeys();
+    return db.citacoes.where('pasta_id').anyOf([id, ...filhas]).count();
+  },
+
+  /** Move várias citações de uma vez para uma pasta (ou para fora, com ''). */
+  async moverCitacoes(ids, pasta_id) {
+    if (!ids || !ids.length) return 0;
+    await db.transaction('rw', db.citacoes, async () => {
+      await db.citacoes.where('id').anyOf(ids)
+                       .modify({ pasta_id: pasta_id || '', atualizado_em: agora() });
+    });
+    mexeu();
+    return ids.length;
   }
 };
 

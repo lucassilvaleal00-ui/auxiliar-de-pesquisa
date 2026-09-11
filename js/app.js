@@ -12,7 +12,7 @@ const R = window.Referencias;
 
 /* Precisa ser igual ao VERSAO do sw.js. Aparece em Configurações: é assim que
    se confere, num aparelho qualquer, se a última publicação já chegou. */
-const VERSAO_APP = 'v16';
+const VERSAO_APP = 'v17';
 
 /* --------------------------------------------------------------- atalhos */
 
@@ -42,6 +42,8 @@ const estado = {
   categorias: [],
   pasta_id: null,          // dentro da obra: null = todas · '' = soltas · id = uma
   pastas: [],
+  selCit: new Set(),       // citações marcadas para mover
+  modoSelCit: false,
   urlsCapas: []            // objectURLs a liberar no próximo desenho
 };
 
@@ -846,6 +848,7 @@ async function telaObra(id, semHistorico = false) {
   mostrarTela('tela-obra');
   $('#busca-citacoes').value = '';
   estado.pasta_id = null;
+  sairSelecaoCit();
 
   const cat = l.categoria_id ? (await Categorias.obter(l.categoria_id)) : null;
   const falta = Livros.faltando(l);
@@ -864,6 +867,7 @@ async function telaObra(id, semHistorico = false) {
           <button class="btn primario" data-nova-citacao>+ Nova citação</button>
           <button class="btn" data-editar-obra>Editar obra</button>
           <button class="btn" data-ref-obra>Ver referências</button>
+          <button class="btn" data-selecionar-cit>☑ Selecionar citações</button>
           <button class="btn" data-fichamento>Gerar fichamento</button>
           <button class="btn perigo" data-excluir-obra>Excluir</button>
         </div>
@@ -873,6 +877,7 @@ async function telaObra(id, semHistorico = false) {
   $('#obra-cabecalho').querySelector('[data-nova-citacao]').onclick = () => formCitacao(l);
   $('#obra-cabecalho').querySelector('[data-editar-obra]').onclick = () => formObra(l);
   $('#obra-cabecalho').querySelector('[data-ref-obra]').onclick = () => janelaReferencias(l, {});
+  $('#obra-cabecalho').querySelector('[data-selecionar-cit]').onclick = entrarSelecaoCit;
   $('#obra-cabecalho').querySelector('[data-fichamento]').onclick = () => janelaFichamento(l);
   $('#obra-cabecalho').querySelector('[data-excluir-obra]').onclick = async () => {
     const n = await Citacoes.contar(l.id);
@@ -893,52 +898,144 @@ async function telaObra(id, semHistorico = false) {
    já entendeu uma entende a outra na hora. A diferença é o alcance —
    categoria agrupa OBRAS; pasta agrupa CITAÇÕES dentro de uma obra só.
 --------------------------------------------------------------------------*/
+/* ------------------------------------------------------------- as pastas
+   Dois níveis, e a navegação reflete isso:
+
+     barra horizontal  →  as pastas MESTRAS ("Miqueias", "Jonas")
+     dentro de uma     →  as subpastas dela ("Autores", "Datação"), cada uma
+                          com renomear e excluir ao lado, mais as citações
+                          guardadas direto na mestra.
+
+   `estado.pasta_id` é a pasta ABERTA — pode ser mestra ou subpasta. A barra
+   de cima acende a mestra correspondente, para nunca se perder o rumo.
+--------------------------------------------------------------------------*/
+
+/** A mestra correspondente à pasta aberta (ela mesma, se já for mestra). */
+function mestraAberta() {
+  if (!estado.pasta_id) return estado.pasta_id;          // null ou ''
+  const p = (estado.pastas || []).find(x => x.id === estado.pasta_id);
+  if (!p) return null;
+  return (p.pai_id || '') || p.id;
+}
+
 async function desenharPastas() {
   const barra = $('#barra-pastas');
   const l = obraAtual;
   estado.pastas = await Pastas.porLivro(l.id);
+  const mestras = estado.pastas.filter(p => !(p.pai_id || ''));
 
   const total = await Citacoes.contar(l.id);
   const soltas = (await Citacoes.porLivro(l.id, '', '')).length;
+  const daMestra = mestraAberta();
 
-  // Sem pasta nenhuma, a barra mostra só o convite para criar a primeira.
   const contas = {};
-  for (const p of estado.pastas) contas[p.id] = await Pastas.contar(p.id);
+  for (const p of mestras) contas[p.id] = await Pastas.contarTudo(p.id);
 
-  const chip = (id, nome, quantas, ativa) =>
+  const chip = (id, nome, quantas, ativa, extra = '') =>
     `<button class="cat ${ativa ? 'ativa' : ''}" data-pasta="${id === null ? '' : esc(id)}"
-       ${id === null ? 'data-todas-pastas' : ''}>${esc(nome)}
-       <span class="conta">${quantas}</span></button>`;
+       ${extra}>${esc(nome)} <span class="conta">${quantas}</span></button>`;
 
   barra.innerHTML =
-    chip(null, 'Todas', total, estado.pasta_id === null) +
-    estado.pastas.map(p => chip(p.id, p.titulo, contas[p.id] ?? 0, estado.pasta_id === p.id)).join('') +
-    (estado.pastas.length && soltas ? chip('', 'Soltas', soltas, estado.pasta_id === '') : '') +
-    `<button class="cat nova" data-nova-pasta>+ Nova pasta</button>` +
-    (estado.pasta_id ? `<button class="cat" data-editar-pasta>✎ Renomear</button>
-       <button class="cat" data-excluir-pasta>🗑 Excluir pasta</button>` : '');
+    chip(null, 'Todas', total, estado.pasta_id === null, 'data-todas-pastas') +
+    mestras.map(p => chip(p.id, p.titulo, contas[p.id] ?? 0, daMestra === p.id)).join('') +
+    (mestras.length && soltas ? chip('', 'Soltas', soltas, estado.pasta_id === '') : '') +
+    `<button class="cat nova" data-nova-pasta>+ Nova pasta</button>`;
 
   barra.querySelectorAll('[data-pasta]').forEach(b => {
     b.onclick = () => {
       estado.pasta_id = b.hasAttribute('data-todas-pastas') ? null : b.dataset.pasta;
+      sairSelecaoCit();
       desenharPastas(); desenharCitacoes();
     };
   });
-  barra.querySelector('[data-nova-pasta]').onclick = () => formPasta();
-  const bEd = barra.querySelector('[data-editar-pasta]');
-  if (bEd) bEd.onclick = async () => formPasta(await Pastas.obter(estado.pasta_id));
-  const bEx = barra.querySelector('[data-excluir-pasta]');
-  if (bEx) bEx.onclick = () => excluirPasta(estado.pasta_id);
+  barra.querySelector('[data-nova-pasta]').onclick = () => formPasta({ pai_id: '' });
+
+  await desenharSubpastas();
 }
 
-function formPasta(pasta = null) {
+/* O painel que aparece DENTRO de uma pasta: caminho de volta, as subpastas
+   com os seus botões, e o convite para criar mais uma. */
+async function desenharSubpastas() {
+  const alvo = $('#obra-subpastas');
+  const daMestra = mestraAberta();
+  if (!daMestra) { alvo.innerHTML = ''; alvo.hidden = true; return; }
+  alvo.hidden = false;
+
+  const mestra = estado.pastas.find(p => p.id === daMestra);
+  const aberta = estado.pastas.find(p => p.id === estado.pasta_id);
+  const dentroDeSub = aberta && (aberta.pai_id || '');
+  const filhas = await Pastas.filhas(daMestra);
+
+  const contas = {};
+  for (const f of filhas) contas[f.id] = await Pastas.contarDiretas(f.id);
+  const naMestra = await Pastas.contarDiretas(daMestra);
+
+  const linhaSub = f => `
+    <div class="sub ${estado.pasta_id === f.id ? 'ativa' : ''}">
+      <button class="sub-nome" data-abrir-sub="${esc(f.id)}">
+        📁 ${esc(f.titulo)} <span class="conta">${contas[f.id] ?? 0}</span>
+      </button>
+      <button class="mini" data-editar-sub="${esc(f.id)}" title="Renomear">✎</button>
+      <button class="mini" data-excluir-sub="${esc(f.id)}" title="Excluir">🗑</button>
+    </div>`;
+
+  alvo.innerHTML = `
+    <div class="caminho">
+      <b>📂 ${esc(mestra ? mestra.titulo : '')}</b>
+      ${dentroDeSub ? ` › <b>${esc(aberta.titulo)}</b>
+          <button class="btn pequeno" data-voltar-mestra>‹ voltar para ${esc(mestra.titulo)}</button>` : ''}
+      <span class="espaco"></span>
+      <button class="btn pequeno" data-editar-pasta>✎ Renomear</button>
+      <button class="btn pequeno perigo" data-excluir-pasta>🗑 Excluir</button>
+    </div>
+    ${dentroDeSub ? '' : `
+      <div class="subpastas">
+        ${filhas.map(linhaSub).join('')}
+        <button class="cat nova" data-nova-sub>+ Nova subpasta</button>
+      </div>
+      ${filhas.length ? `<p class="dica">Abaixo, as ${naMestra} citação(ões) guardadas
+         direto em "${esc(mestra.titulo)}" — as das subpastas aparecem dentro delas.</p>` : ''}`}`;
+
+  const bVoltar = alvo.querySelector('[data-voltar-mestra]');
+  if (bVoltar) bVoltar.onclick = () => {
+    estado.pasta_id = daMestra; sairSelecaoCit();
+    desenharPastas(); desenharCitacoes();
+  };
+  alvo.querySelectorAll('[data-abrir-sub]').forEach(b => {
+    b.onclick = () => {
+      estado.pasta_id = b.dataset.abrirSub; sairSelecaoCit();
+      desenharPastas(); desenharCitacoes();
+    };
+  });
+  alvo.querySelectorAll('[data-editar-sub]').forEach(b => {
+    b.onclick = async () => formPasta(await Pastas.obter(b.dataset.editarSub));
+  });
+  alvo.querySelectorAll('[data-excluir-sub]').forEach(b => {
+    b.onclick = () => excluirPasta(b.dataset.excluirSub);
+  });
+  const bNova = alvo.querySelector('[data-nova-sub]');
+  if (bNova) bNova.onclick = () => formPasta({ pai_id: daMestra });
+  alvo.querySelector('[data-editar-pasta]').onclick =
+    async () => formPasta(await Pastas.obter(estado.pasta_id));
+  alvo.querySelector('[data-excluir-pasta]').onclick = () => excluirPasta(estado.pasta_id);
+}
+
+/** @param alvo  uma pasta existente (renomear) ou { pai_id } (criar) */
+function formPasta(alvo = { pai_id: '' }) {
   if (!podeEditar()) return avisoLeitura();
-  abrirJanela(pasta ? 'Renomear pasta' : 'Nova pasta', `
+  const pasta = alvo && alvo.id ? alvo : null;
+  const pai_id = pasta ? (pasta.pai_id || '') : (alvo.pai_id || '');
+  const ehSub = !!pai_id;
+  const mestra = ehSub ? estado.pastas.find(p => p.id === pai_id) : null;
+
+  abrirJanela(pasta ? 'Renomear pasta' : (ehSub ? 'Nova subpasta' : 'Nova pasta'), `
+    ${ehSub && !pasta ? `<p class="dica">Dentro de <b>${esc(mestra ? mestra.titulo : '')}</b>.</p>` : ''}
     <label class="rot">Nome da pasta <span class="obrig">*</span></label>
     <input type="text" id="pasta-titulo" value="${esc(pasta ? pasta.titulo : '')}"
-           placeholder="Ex.: Autoria de Jonas">
-    <p class="dica">A pasta vale só dentro desta obra. Serve para juntar as
-      citações de um mesmo assunto e depois gerar o fichamento só delas.</p>`,
+           placeholder="${ehSub ? 'Ex.: Autores' : 'Ex.: Miqueias'}">
+    <p class="dica">${ehSub
+      ? 'Subpasta serve para dividir um tema em assuntos: dentro de "Miqueias", as pastas "Autores", "Datação", "Pregação".'
+      : 'A pasta mestra vale só dentro desta obra e aparece na barra de cima. Dentro dela você pode criar subpastas.'}</p>`,
     `<button class="btn" data-cancelar>Cancelar</button>
      <button class="btn primario" data-salvar>Salvar</button>`);
 
@@ -949,7 +1046,7 @@ function formPasta(pasta = null) {
     try {
       if (pasta) await Pastas.editar(pasta.id, { titulo });
       else {
-        const nova = await Pastas.criar({ livro_id: obraAtual.id, titulo });
+        const nova = await Pastas.criar({ livro_id: obraAtual.id, titulo, pai_id });
         estado.pasta_id = nova.id;      // já entra na pasta recém-criada
       }
     } catch (e) { return aviso(e.message); }
@@ -959,16 +1056,134 @@ function formPasta(pasta = null) {
   };
 }
 
+/* Excluir com citações dentro é a única operação do app que pode fazer alguém
+   perder texto. Por isso não usa o "confirmar" de duas opções: mostra as duas
+   saídas lado a lado, com o número das citações em cada uma. */
 async function excluirPasta(id) {
   if (!podeEditar()) return avisoLeitura();
-  const quantas = await Pastas.contar(id);
-  if (!await confirmar('Excluir pasta',
-    `A pasta será apagada. <b>As ${quantas} citação(ões) dela não serão apagadas</b> — ` +
-    `voltam a ficar soltas nesta obra.`, 'Excluir pasta')) return;
-  await Pastas.excluir(id);
-  estado.pasta_id = null;
-  await desenharPastas(); desenharCitacoes();
-  aviso('Pasta excluída. As citações continuam aqui.');
+  const pasta = await Pastas.obter(id);
+  if (!pasta) return;
+  const filhas = await Pastas.filhas(id);
+  const quantas = await Pastas.contarTudo(id);
+
+  if (!quantas) {
+    if (!await confirmar('Excluir pasta',
+      `A pasta <b>${esc(pasta.titulo)}</b> está vazia e será apagada.` +
+      (filhas.length ? ` As ${filhas.length} subpasta(s) dela vão junto.` : ''),
+      'Excluir')) return;
+    await Pastas.excluir(id);
+    estado.pasta_id = (pasta.pai_id || '') || null;
+    await desenharPastas(); desenharCitacoes();
+    return aviso('Pasta excluída.');
+  }
+
+  abrirJanela(`Excluir "${esc(pasta.titulo)}"`, `
+    <p>Esta pasta tem <b>${quantas} citação(ões)</b> dentro${filhas.length
+      ? `, contando as de ${filhas.length} subpasta(s)` : ''}. O que fazer com elas?</p>
+    <div class="alerta" style="margin-top:12px">
+      Apagar citação não tem como desfazer — o aplicativo não tem lixeira.
+    </div>`,
+    `<button class="btn" data-cancelar>Cancelar</button>
+     <button class="btn" data-so-pasta>Excluir só a pasta</button>
+     <button class="btn perigo" data-com-tudo>Excluir pasta e as ${quantas} citações</button>`);
+
+  $('[data-cancelar]').onclick = fecharJanela;
+
+  const concluir = async (comCitacoes, texto) => {
+    await Pastas.excluir(id, { comCitacoes });
+    estado.pasta_id = (pasta.pai_id || '') || null;
+    fecharJanela();
+    await desenharPastas(); desenharCitacoes();
+    aviso(texto, 5000);
+  };
+  $('[data-so-pasta]').onclick = () =>
+    concluir(false, `Pasta excluída. As ${quantas} citação(ões) voltaram a ficar soltas na obra.`);
+  $('[data-com-tudo]').onclick = async () => {
+    if (!await confirmar('Tem certeza?',
+      `Serão apagadas <b>${quantas} citação(ões)</b> junto com a pasta. Isso não tem volta.`,
+      `Apagar tudo`)) return;
+    await concluir(true, `Pasta e ${quantas} citação(ões) apagadas.`);
+  };
+}
+
+/* ------------------------------------------------- seleção de citações
+   Mesmo padrão da seleção de obras na tela inicial: um botão liga o modo, os
+   cartões viram alvos de toque, e uma barra aparece com o que dá para fazer
+   com o que está marcado.
+--------------------------------------------------------------------------*/
+
+function entrarSelecaoCit() {
+  if (!podeEditar()) return avisoLeitura();
+  estado.modoSelCit = true;
+  estado.selCit.clear();
+  desenharCitacoes();
+}
+
+function sairSelecaoCit() {
+  if (!estado.modoSelCit && !estado.selCit.size) return;
+  estado.modoSelCit = false;
+  estado.selCit.clear();
+  const barra = $('#barra-selecao-cit');
+  if (barra) barra.hidden = true;
+}
+
+function pintarSelecaoCit() {
+  const barra = $('#barra-selecao-cit');
+  barra.hidden = !estado.modoSelCit;
+  $('#selecao-cit-conta').textContent =
+    `${estado.selCit.size} selecionada(s)`;
+  $('#sel-cit-mover').disabled = estado.selCit.size === 0;
+}
+
+$('#sel-cit-sair').onclick = () => { sairSelecaoCit(); desenharCitacoes(); };
+$('#sel-cit-todas').onclick = () => {
+  $('#obra-citacoes').querySelectorAll('[data-cit]').forEach(d => estado.selCit.add(d.dataset.cit));
+  desenharCitacoes();
+};
+$('#sel-cit-mover').onclick = () => janelaMoverCitacoes([...estado.selCit]);
+
+/** A lista de destinos possíveis, já com as subpastas recuadas sob a mestra. */
+function opcoesDeDestino(selecionado = null) {
+  const mestras = (estado.pastas || []).filter(p => !(p.pai_id || ''));
+  let html = `<option value="">— Solta, fora de pasta —</option>`;
+  for (const m of mestras) {
+    const sel = selecionado === m.id ? 'selected' : '';
+    html += `<option value="${esc(m.id)}" ${sel}>${esc(m.titulo)}</option>`;
+    for (const f of (estado.pastas || []).filter(p => p.pai_id === m.id)) {
+      const sf = selecionado === f.id ? 'selected' : '';
+      // O travessão é o que mostra, num <select> simples, que a subpasta está
+      // dentro da mestra de cima — não dá para recuar opção com CSS confiável.
+      html += `<option value="${esc(f.id)}" ${sf}>— ${esc(m.titulo)} › ${esc(f.titulo)}</option>`;
+    }
+  }
+  return html;
+}
+
+function janelaMoverCitacoes(ids) {
+  if (!ids.length) return aviso('Marque ao menos uma citação.');
+  abrirJanela(`Mover ${ids.length} citação(ões)`, `
+    <label class="rot">Para onde?</label>
+    <select class="campo" id="mover-destino">${opcoesDeDestino()}</select>
+    <p class="dica">As citações continuam na mesma obra — muda só a pasta em
+      que ficam guardadas. Nada é apagado.</p>`,
+    `<button class="btn" data-cancelar>Cancelar</button>
+     <button class="btn primario" data-mover>Mover</button>`);
+
+  $('[data-cancelar]').onclick = fecharJanela;
+  $('[data-mover]').onclick = async () => {
+    const destino = $('#mover-destino').value;
+    await Pastas.moverCitacoes(ids, destino);
+    fecharJanela();
+    sairSelecaoCit();
+    // Vai junto para o destino: procurar onde foram parar seria trabalho à toa.
+    if (estado.pasta_id !== null) estado.pasta_id = destino;
+    await desenharPastas();
+    desenharCitacoes();
+    const nome = destino
+      ? (estado.pastas.find(p => p.id === destino) || {}).titulo || 'a pasta'
+      : 'fora de pasta';
+    aviso(`${ids.length} citação(ões) movida(s) para ${nome}.`, 4000);
+  };
 }
 
 async function desenharCitacoes() {
@@ -994,10 +1209,12 @@ async function desenharCitacoes() {
 
   alvo.innerHTML = lista.map(c => `
     <div class="citacao" data-cit="${c.id}">
-      <div class="acoes">
+      ${estado.modoSelCit ? `<label class="marca-cit">
+           <input type="checkbox" data-marcar="${c.id}" ${estado.selCit.has(c.id) ? 'checked' : ''}>
+         </label>` : `<div class="acoes">
         <button class="mini" data-editar title="Editar">✎</button>
         <button class="mini" data-excluir title="Excluir">🗑</button>
-      </div>
+      </div>`}
       <div class="pag">${c.pagina
         ? esc(c.pagina) + (ehBiblia ? '' : ' <span class="pag-un">pág.</span>')
         : '—'}</div>
@@ -1009,6 +1226,30 @@ async function desenharCitacoes() {
         ${c.nota_pessoal ? `<div class="cap">📝 ${esc(c.nota_pessoal)}</div>` : ''}
       </div>
     </div>`).join('');
+
+  if (estado.modoSelCit) {
+    alvo.querySelectorAll('[data-cit]').forEach(div => {
+      const id = div.dataset.cit;
+      const caixa = div.querySelector('[data-marcar]');
+      const alternar = () => {
+        if (estado.selCit.has(id)) estado.selCit.delete(id); else estado.selCit.add(id);
+        caixa.checked = estado.selCit.has(id);
+        div.classList.toggle('marcado', caixa.checked);
+        pintarSelecaoCit();
+      };
+      div.classList.toggle('marcado', estado.selCit.has(id));
+      // O cartão inteiro é o alvo do clique: mirar numa caixinha de 16 px no
+      // celular é pedir demais de quem está trabalhando.
+      div.onclick = e => { if (e.target !== caixa) alternar(); };
+      caixa.onchange = () => {
+        estado.selCit.has(id) ? estado.selCit.delete(id) : estado.selCit.add(id);
+        div.classList.toggle('marcado', caixa.checked);
+        pintarSelecaoCit();
+      };
+    });
+    pintarSelecaoCit();
+    return;
+  }
 
   alvo.querySelectorAll('[data-cit]').forEach(div => {
     const id = div.dataset.cit;
@@ -1080,10 +1321,7 @@ function formCitacao(livro, citacao = null) {
     <p class="dica">É a coluna do meio da tabela do fichamento.</p>
 
     <label class="rot">Pasta</label>
-    <select class="campo" id="c-pasta">
-      <option value="">— Solta, fora de pasta —</option>
-      ${pastas.map(p => `<option value="${esc(p.id)}" ${(c.pasta_id || '') === p.id ? 'selected' : ''}>${esc(p.titulo)}</option>`).join('')}
-    </select>
+    <select class="campo" id="c-pasta">${opcoesDeDestino(c.pasta_id || '')}</select>
     ${pastas.length ? '' : `<p class="dica">Esta obra ainda não tem pastas.
       Crie a primeira na barra logo abaixo do cabeçalho da obra.</p>`}
     <label class="rot">Título do capítulo</label>
@@ -1384,13 +1622,26 @@ async function janelaFichamento(livro) {
      escolher "quero o fichamento só da pasta Autoria" com um clique só.
      A ordem segue a das pastas; as soltas ficam por último. */
   const pastas = await Pastas.porLivro(livro.id);
+  const mestras = pastas.filter(p => !(p.pai_id || ''));
   const grupos = [];
-  for (const p of pastas) {
-    const itens = citacoes.filter(c => (c.pasta_id || '') === p.id);
-    if (itens.length) grupos.push({ id: p.id, pasta: p.titulo, itens });
+  for (const m of mestras) {
+    const filhas = pastas.filter(p => p.pai_id === m.id);
+    const diretas = citacoes.filter(c => (c.pasta_id || '') === m.id);
+    const dentro = citacoes.filter(c => filhas.some(f => f.id === (c.pasta_id || '')));
+    if (!diretas.length && !dentro.length) continue;
+
+    // A mestra entra mesmo sem citação direta: é ela que dá o guarda-chuva
+    // para marcar o tema inteiro de uma vez.
+    grupos.push({ id: m.id, pasta: m.titulo, nivel: 0, itens: diretas, ancestrais: [m.id] });
+    for (const f of filhas) {
+      const itens = citacoes.filter(c => (c.pasta_id || '') === f.id);
+      if (itens.length) grupos.push({ id: f.id, pasta: f.titulo, nivel: 1, itens,
+                                      ancestrais: [m.id, f.id] });
+    }
   }
-  const soltas = citacoes.filter(c => !(c.pasta_id || ''));
-  if (soltas.length) grupos.push({ id: '', pasta: '', itens: soltas });
+  const soltas = citacoes.filter(c => !(c.pasta_id || '') ||
+                                       !pastas.some(p => p.id === c.pasta_id));
+  if (soltas.length) grupos.push({ id: '', pasta: '', nivel: 0, itens: soltas, ancestrais: [''] });
 
   abrirJanela('Gerar fichamento', `
     <p class="dica">${esc(livro.titulo)}</p>
@@ -1430,16 +1681,15 @@ async function janelaFichamento(livro) {
       </span>
     </div>
     <div id="fic-lista" style="margin-top:8px">${grupos.map(g => `
-      <div class="fic-grupo">
-        ${g.pasta ? `<label class="fic-pasta">
-             <input type="checkbox" data-grupo="${esc(g.id)}" checked>
-             <b>📁 ${esc(g.pasta)}</b> <small>${g.itens.length} citação(ões)</small>
-           </label>` : (grupos.length > 1 ? `<label class="fic-pasta">
-             <input type="checkbox" data-grupo="" checked>
-             <b>Soltas</b> <small>${g.itens.length} citação(ões)</small>
-           </label>` : '')}
+      <div class="fic-grupo ${g.nivel ? 'sub' : ''}">
+        ${(g.pasta || grupos.length > 1) ? `<label class="fic-pasta">
+             <input type="checkbox" data-grupo="${esc(g.id || '_soltas')}" checked>
+             <b>${g.nivel ? '↳ 📁' : '📂'} ${esc(g.pasta || 'Soltas')}</b>
+             <small>${g.itens.length} citação(ões)${g.nivel === 0 && !g.itens.length
+               ? ' direto aqui' : ''}</small>
+           </label>` : ''}
         ${g.itens.map(c => `
-          <label class="fic-item" data-de-grupo="${esc(g.id)}">
+          <label class="fic-item" data-grupos="${esc(g.ancestrais.join(' '))}">
             <input type="checkbox" data-cit="${c.id}" checked>
             <span>
               <b>${esc(c.assunto || c.capitulo || 'sem assunto')}</b>
@@ -1455,8 +1705,11 @@ async function janelaFichamento(livro) {
   const marcadas = () => Array.from($('#fic-lista').querySelectorAll('[data-cit]'))
     .filter(i => i.checked).map(i => citacoes.find(c => c.id === i.dataset.cit));
 
+  /* `~=` casa uma palavra dentro da lista separada por espaços: marcar a
+     mestra pega também as citações das subpastas dela, que trazem o id da
+     mestra na própria lista de ancestrais. */
   const caixasDoGrupo = id =>
-    Array.from($('#fic-lista').querySelectorAll(`[data-de-grupo="${CSS.escape(id)}"] [data-cit]`));
+    Array.from($('#fic-lista').querySelectorAll(`[data-grupos~="${CSS.escape(id || '_soltas')}"] [data-cit]`));
 
   /* A caixinha da pasta comanda as de dentro; e se alguém desmarcar uma
      citação à mão, a da pasta reflete isso (fica meio-marcada). */
