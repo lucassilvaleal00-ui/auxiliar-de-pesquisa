@@ -12,7 +12,7 @@ const R = window.Referencias;
 
 /* Precisa ser igual ao VERSAO do sw.js. Aparece em Configurações: é assim que
    se confere, num aparelho qualquer, se a última publicação já chegou. */
-const VERSAO_APP = 'v19';
+const VERSAO_APP = 'v20';
 
 /* --------------------------------------------------------------- atalhos */
 
@@ -981,15 +981,25 @@ async function desenharSubpastas() {
       </button>
     </div>`;
 
+  // O caminho é a própria navegação: o nome da pasta mestra vira botão quando
+  // estamos dentro de uma subpasta, e apertar nele sobe um nível. É mais
+  // intuitivo do que um botão "voltar" separado — é o que todo gerenciador de
+  // arquivos faz. A pasta em que se está agora NÃO é botão: não leva a lugar
+  // nenhum, e virar botão só faria o usuário apertar à toa.
+  const trilha = dentroDeSub
+    ? `<button class="migalha" data-voltar-mestra title="Voltar para ${esc(mestra.titulo)}">
+         📂 ${esc(mestra.titulo)}</button>
+       <span class="seta" aria-hidden="true">›</span>
+       <b class="migalha-aqui" aria-current="page">📁 ${esc(aberta.titulo)}</b>`
+    : `<b class="migalha-aqui" aria-current="page">📂 ${esc(mestra ? mestra.titulo : '')}</b>`;
+
   alvo.innerHTML = `
-    <div class="caminho">
-      <b>📂 ${esc(mestra ? mestra.titulo : '')}</b>
-      ${dentroDeSub ? ` › <b>${esc(aberta.titulo)}</b>
-          <button class="btn pequeno" data-voltar-mestra>‹ voltar para ${esc(mestra.titulo)}</button>` : ''}
+    <nav class="caminho" aria-label="Caminho das pastas">
+      ${trilha}
       <span class="espaco"></span>
       <button class="btn pequeno" data-editar-pasta>✎ Renomear</button>
       <button class="btn pequeno perigo" data-excluir-pasta>🗑 Excluir</button>
-    </div>
+    </nav>
     ${dentroDeSub ? '' : `
       <div class="subpastas">
         ${filhas.map(linhaSub).join('')}
