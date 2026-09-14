@@ -1,83 +1,46 @@
-SUBPASTAS E SELEÇÃO DE CITAÇÕES (v17)
-=====================================
+AJUSTES DE TELA (v18)
+=====================
 
 ARQUIVOS PARA SUBSTITUIR
 ------------------------
-    index.html      (na raiz)
-    sw.js           (na raiz)
-    style.css       (na raiz)
-    js/db.js
+    index.html        (na raiz)
+    sw.js             (na raiz)
+    style.css         (na raiz)
     js/app.js
+    js/fichamento.js
+    js/word.js
 
-Depois: ⚙ Configurações → o quadro "Versão" tem que dizer v17.
+Depois: ⚙ Configurações → o quadro "Versão" tem que dizer v18.
+Nada muda no banco de dados nem no Supabase.
 
-NÃO precisa mexer no Supabase desta vez. A tabela das pastas já existe lá, e
-o "pai" da subpasta viaja junto com os outros campos, sem coluna nova.
+O QUE MUDOU
+-----------
+1. SUBPASTAS EM LISTA
+   Uma abaixo da outra, como uma lista de pastas de verdade — não mais em
+   cápsulas lado a lado. Fica legível mesmo com dez subpastas.
 
---------------------------------------------------------------------------
-1. DOIS NÍVEIS DE PASTA
---------------------------------------------------------------------------
-A barra horizontal passou a ser das PASTAS MESTRAS. Entrando numa delas,
-aparece logo abaixo o painel dela:
+2. EDITAR E EXCLUIR MAIS DISCRETOS
+   Saíram da direita e foram para logo depois do ícone da pasta, na esquerda:
 
-    📂 Miqueias                          [✎ Renomear] [🗑 Excluir]
-    [📁 Autores 2 ✎🗑] [📁 Datação 1 ✎🗑] [+ Nova subpasta]
+       📁 ✎ 🗑  Significado do nome de Miquéias   1
 
-    Abaixo, a citação guardada direto em "Miqueias".
+   Ficaram apagadinhos de propósito, acendendo só quando o mouse passa por
+   cima. São ações raras perto de "abrir a pasta", que é o que se faz o tempo
+   todo — não devem disputar a atenção com o nome.
 
-• Cada subpasta tem renomear e excluir logo ao lado, como você pediu.
-• Clicando numa subpasta você entra nela; há sempre o caminho de volta.
-• A contagem na barra de cima soma tudo: as citações da mestra mais as das
-  subpastas dela.
-• São DOIS níveis, de propósito. Subpasta não tem subpasta — cada nível a
-  mais dobraria a navegação, o seletor de destino e o fichamento.
+3. BOTÃO DE COPIAR NA CITAÇÃO
+   Junto do lápis e da lixeira há agora um ⧉. Apertando, o TEXTO da citação
+   vai para a área de transferência, pronto para colar onde você quiser.
 
---------------------------------------------------------------------------
-2. SELECIONAR E MOVER
---------------------------------------------------------------------------
-Botão "☑ Selecionar citações" no cabeçalho da obra. Ligado ele:
+4. CAIXINHA DE SELEÇÃO SEMPRE À VISTA
+   Cada citação tem a sua caixinha. Marcando a primeira, a barra aparece
+   sozinha com "Marcar todas", "Mover para…" e "Cancelar" — não é mais
+   preciso ligar um modo antes. O botão "Selecionar citações" do cabeçalho
+   saiu, porque virou desnecessário.
 
-• põe uma caixinha em cada citação — e o cartão INTEIRO vira alvo do toque,
-  porque mirar numa caixinha de 16 px no celular é pedir demais;
-• abre a barra "N selecionada(s) · Marcar todas · Mover para… · Cancelar".
+   Em "Mover para…" continuam listadas as pastas mestras e, recuadas, as
+   subpastas.
 
-Em "Mover para…", a lista de destinos traz as mestras e, recuadas com um
-travessão, as subpastas:
-
-    — Solta, fora de pasta —
-    Miqueias
-    — Miqueias › Autores
-    — Miqueias › Datação
-    Jonas
-
-Depois de mover, a tela vai junto para o destino e o modo de seleção se
-desliga sozinho.
-
---------------------------------------------------------------------------
-3. EXCLUIR PASTA: VOCÊ ESCOLHE
---------------------------------------------------------------------------
-Excluindo uma pasta que tem citações dentro, o app mostra as duas saídas em
-vez de decidir por você:
-
-    Esta pasta tem 7 citação(ões) dentro. O que fazer com elas?
-
-    [ Cancelar ]  [ Excluir só a pasta ]  [ Excluir pasta e as 7 citações ]
-
-"Só a pasta" devolve as citações para fora (ficam soltas na obra).
-"Pasta e citações" apaga tudo — e pede uma segunda confirmação, porque não
-tem como desfazer: o aplicativo não tem lixeira.
-
-Excluir uma MESTRA leva junto as subpastas dela, e o aviso diz isso.
-
---------------------------------------------------------------------------
-4. NO FICHAMENTO
---------------------------------------------------------------------------
-As citações aparecem na mesma hierarquia: a mestra com 📂, as subpastas
-recuadas com 📁. Marcar a mestra marca também o que está nas subpastas dela
-— é o jeito de levar um tema inteiro num clique.
-
---------------------------------------------------------------------------
-BANCO DE DADOS
---------------------------------------------------------------------------
-Sobe da versão 7 para a 8 sozinho. Todas as pastas que você já criou viram
-mestras. Nada é apagado.
+5. FICHAMENTO: TEXTO À ESQUERDA DE NOVO
+   Na coluna "Informações para o fichamento", o texto voltou ao alinhamento
+   à esquerda, como era antes — no PDF e no Word.

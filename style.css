@@ -177,7 +177,7 @@ h2, h3 { margin: 0 0 8px; }
   background: var(--papel); border: 1px solid var(--linha); border-radius: var(--raio);
   padding: 10px 12px; margin-bottom: 10px; display: flex; gap: 10px; align-items: flex-start;
 }
-.citacao .acoes { display: flex; flex-direction: column; gap: 4px; }
+.citacao .acoes { display: flex; flex-direction: column; gap: 4px; align-items: center; }
 .citacao .pag {
   flex: 0 0 auto; background: var(--marca-clara); color: var(--marca); font-size: 12px;
   padding: 3px 8px; border-radius: 999px; font-weight: 600; white-space: nowrap;
@@ -415,25 +415,38 @@ body.so-leitura .citacao .acoes { display: none !important; }
   font-size: 15px; margin-bottom: 8px;
 }
 .caminho .espaco { flex: 1; }
-.subpastas { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+/* Uma subpasta por linha, como uma lista de pastas de verdade. */
+.subpastas { display: flex; flex-direction: column; gap: 2px; align-items: stretch; }
+.subpastas .cat.nova { align-self: flex-start; margin-top: 6px; }
 .sub {
-  display: flex; align-items: center; gap: 2px;
-  border: 1px solid var(--linha); background: var(--papel);
-  border-radius: 999px; padding: 2px 4px 2px 2px;
+  display: flex; align-items: center; gap: 4px;
+  border: 1px solid transparent; border-radius: 8px; padding: 4px 8px;
 }
-.sub.ativa { border-color: var(--marca); background: var(--marca-clara); }
+.sub:hover { background: var(--marca-clara); border-color: var(--linha); }
+.sub.ativa { background: var(--marca-clara); border-color: var(--marca); }
+.sub-icone { font-size: 15px; line-height: 1; }
+/* Editar e excluir ficam logo depois do ícone, apagados de propósito: são
+   ações raras ao lado de "abrir a pasta", que é o que se faz o tempo todo. */
+.sub .acao {
+  border: 0; background: transparent; color: var(--tinta-fraca);
+  cursor: pointer; font-size: 12px; line-height: 1; padding: 4px 3px;
+  opacity: .45; font-family: inherit;
+}
+.sub .acao:hover { opacity: 1; color: var(--marca); }
+.sub .acao:focus-visible { opacity: 1; outline: 2px solid var(--marca); border-radius: 4px; }
 .sub-nome {
+  flex: 1; text-align: left;
   border: 0; background: transparent; color: var(--tinta); cursor: pointer;
-  font-size: 14px; padding: 5px 8px; font-family: inherit; white-space: nowrap;
+  font-size: 15px; padding: 4px 6px; font-family: inherit;
 }
-.sub .mini { font-size: 13px; padding: 3px 5px; }
-.sub .conta { opacity: .65; font-size: 12px; }
+.sub.ativa .sub-nome { font-weight: 600; }
+.sub .conta { opacity: .6; font-size: 12px; margin-left: 4px; }
 
 /* --------------------------------------------------- seleção de citações */
-.citacao .marca-cit { flex: 0 0 auto; display: flex; align-items: center; padding: 0 4px; }
-.citacao .marca-cit input { width: 20px; height: 20px; }
+.citacao .marca-cit {
+  width: 18px; height: 18px; margin: 0 0 2px; cursor: pointer; flex: 0 0 auto;
+}
 .citacao.marcado { outline: 2px solid var(--marca); }
-body:has(#barra-selecao-cit:not([hidden])) .citacao { cursor: pointer; }
 
 /* subpasta recuada dentro do fichamento */
 .fic-grupo.sub { margin-left: 16px; }
