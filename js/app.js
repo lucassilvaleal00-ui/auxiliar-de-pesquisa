@@ -12,7 +12,7 @@ const R = window.Referencias;
 
 /* Precisa ser igual ao VERSAO do sw.js. Aparece em Configurações: é assim que
    se confere, num aparelho qualquer, se a última publicação já chegou. */
-const VERSAO_APP = 'v18';
+const VERSAO_APP = 'v19';
 
 /* --------------------------------------------------------------- atalhos */
 
@@ -1699,7 +1699,7 @@ async function janelaFichamento(livro) {
       </span>
     </div>
     <div id="fic-lista" style="margin-top:8px">${grupos.map(g => `
-      <div class="fic-grupo ${g.nivel ? 'sub' : ''}">
+      <div class="fic-grupo ${g.nivel ? 'fic-sub' : ''}">
         ${(g.pasta || grupos.length > 1) ? `<label class="fic-pasta">
              <input type="checkbox" data-grupo="${esc(g.id || '_soltas')}" checked>
              <b>${g.nivel ? '↳ 📁' : '📂'} ${esc(g.pasta || 'Soltas')}</b>
@@ -1712,7 +1712,7 @@ async function janelaFichamento(livro) {
             <span>
               <b>${esc(c.assunto || c.capitulo || 'sem assunto')}</b>
               <small>${c.tipo === 'direta' ? 'citação direta' : 'citação indireta'}${c.pagina ? ' · p. ' + esc(c.pagina) : ''}</small>
-              <span class="trecho">${esc(String(c.texto).slice(0, 150))}${c.texto.length > 150 ? '…' : ''}</span>
+              <span class="trecho">${esc(String(c.texto).slice(0, 240))}${c.texto.length > 240 ? '…' : ''}</span>
             </span>
           </label>`).join('')}
       </div>`).join('')}
@@ -1873,11 +1873,14 @@ $('#btn-config').onclick = async () => {
     ${persistente ? '' : '<button class="btn" data-persistir style="width:100%">Pedir armazenamento persistente</button>'}
 
     <h3 style="margin-top:18px">Aparência</h3>
-    <select class="campo" id="tema">
-      <option value="auto">Seguir o aparelho</option>
-      <option value="claro">Sempre claro</option>
-      <option value="escuro">Sempre escuro</option>
-    </select>
+    <label class="rot">Tema do aplicativo</label>
+    <div class="tema-escolha" id="tema-escolha">
+      <button class="btn" data-tema-op="claro">☀️ Claro</button>
+      <button class="btn" data-tema-op="escuro">🌙 Escuro</button>
+      <button class="btn" data-tema-op="auto">⚙️ Automático</button>
+    </div>
+    <p class="dica">A troca vale na hora e fica guardada neste aparelho.
+      "Automático" acompanha o que o celular ou o computador já usa.</p>
 
     <h3 style="margin-top:18px">Manutenção</h3>
     <button class="btn" data-exemplos style="width:100%;margin-bottom:8px">Carregar dados de exemplo</button>
@@ -1899,11 +1902,22 @@ $('#btn-config').onclick = async () => {
     <button class="btn" data-atualizar style="width:100%">↻ Buscar atualização agora</button>`,
     `<button class="btn" data-fechar4>Fechar</button>`);
 
-  $('#tema').value = localStorage.getItem('tema') || 'auto';
-  $('#tema').onchange = e => {
-    localStorage.setItem('tema', e.target.value);
-    aplicarTema();
+  // Três botões em vez de uma lista: o cliente não achou a lista antiga, e aqui
+  // as três opções ficam à vista, com a escolhida marcada.
+  const pintarTema = () => {
+    const atual = localStorage.getItem('tema') || 'auto';
+    $('#tema-escolha').querySelectorAll('[data-tema-op]').forEach(b => {
+      b.classList.toggle('primario', b.dataset.temaOp === atual);
+    });
   };
+  $('#tema-escolha').querySelectorAll('[data-tema-op]').forEach(b => {
+    b.onclick = () => {
+      localStorage.setItem('tema', b.dataset.temaOp);
+      aplicarTema();
+      pintarTema();
+    };
+  });
+  pintarTema();
 
   $('[data-fechar4]').onclick = fecharJanela;
   $('[data-exportar]').onclick = exportarArquivo;
