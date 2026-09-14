@@ -426,6 +426,37 @@ body.so-leitura .citacao .acoes { display: none !important; }
 /* as citações ficam um degrau à frente da pasta a que pertencem */
 .fic-grupo .fic-item { margin-left: 20px; }
 
+/* --------------------------------------------- páginas escaneadas anexadas
+   A ordem da lista é a ordem das páginas no PDF, então o número da esquerda
+   não é enfeite: é o que o usuário confere antes de gerar. */
+#fic-anexos-lista { margin-top: 6px; }
+.anexo {
+  display: flex; align-items: center; gap: 6px;
+  border: 1px solid var(--linha); border-radius: 8px;
+  padding: 5px 8px; margin-bottom: 3px; font-size: 13px;
+}
+.anexo-n {
+  flex: 0 0 auto; min-width: 20px; height: 20px; border-radius: 999px;
+  background: var(--marca); color: var(--marca-tinta);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 700;
+}
+/* `min-width: 0` de novo: sem ele o nome comprido estoura a linha em vez de
+   ganhar reticências. */
+.anexo-nome {
+  flex: 1; min-width: 0; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap;
+}
+.anexo-peso { flex: 0 0 auto; color: var(--tinta-fraca); font-size: 12px; }
+.anexo .acao {
+  border: 0; background: transparent; color: var(--tinta-fraca);
+  cursor: pointer; font-size: 13px; padding: 3px 4px; font-family: inherit;
+  opacity: .55; line-height: 1;
+}
+.anexo .acao:hover:not(:disabled) { opacity: 1; color: var(--marca); }
+.anexo .acao:disabled { opacity: .15; cursor: default; }
+.anexo .acao:focus-visible { opacity: 1; outline: 2px solid var(--marca); border-radius: 4px; }
+
 /* ------------------------------------------------------- escolha de tema */
 .tema-escolha { display: flex; gap: 6px; }
 .tema-escolha .btn { flex: 1; padding: 9px 4px; font-size: 13px; }
