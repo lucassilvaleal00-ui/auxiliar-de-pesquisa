@@ -358,17 +358,25 @@ body.so-leitura .citacao .acoes { display: none !important; }
 
 /* ------------------------------------------------- escolher citações do fichamento */
 .fic-item {
-  display: flex; gap: 10px; align-items: flex-start; padding: 9px 10px;
-  border: 1px solid var(--linha); border-radius: 10px; margin-bottom: 7px;
+  display: flex; gap: 10px; align-items: flex-start; padding: 7px 10px;
+  border: 1px solid var(--linha); border-radius: 8px; margin-bottom: 3px;
   cursor: pointer;
 }
 .fic-item:hover { border-color: var(--marca); }
 .fic-item input { margin-top: 3px; flex: 0 0 auto; }
+/* `min-width: 0` é o que permite ao filho encolher e as reticências
+   aparecerem: sem isso o flex respeita a largura do texto e estoura a caixa. */
+.fic-item > span { min-width: 0; flex: 1; }
 .fic-item b { display: block; font-size: 14px; }
-.fic-item small { color: var(--tinta-fraca); font-size: 12px; }
+.fic-item small { display: block; color: var(--tinta-fraca); font-size: 12px; }
+/* Citação comprida é cortada com reticências em duas linhas: a lista serve
+   para RECONHECER a citação, não para lê-la inteira. */
 .fic-item .trecho {
-  display: block; font-size: 13px; color: var(--tinta-fraca); margin-top: 3px;
-  font-family: Georgia, "Times New Roman", serif;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+  overflow: hidden; text-overflow: ellipsis;
+  font-size: 13px; color: var(--tinta-fraca); margin-top: 2px;
+  font-family: Georgia, "Times New Roman", serif; line-height: 1.35;
+  max-height: 2.7em;
 }
 
 /* ------------------------------------------------------------- a nuvem
@@ -397,8 +405,14 @@ body.so-leitura .citacao .acoes { display: none !important; }
 @keyframes girar { to { transform: rotate(360deg); } }
 @media (prefers-reduced-motion: reduce) { .faixa-nuvem .girando { animation: none; } }
 
-/* --------------------------------------------- pastas dentro do fichamento */
-.fic-grupo { margin-bottom: 10px; }
+/* --------------------------------------------- pastas dentro do fichamento
+   Tudo em lista, de cima para baixo, com o recuo dizendo quem está dentro de
+   quem: mestra na margem, subpasta um degrau à frente, citações um degrau
+   além da pasta em que estão. */
+#fic-lista { display: block; }
+.fic-grupo { display: block; margin: 0 0 4px; }
+.fic-grupo.fic-sub { margin-left: 20px; }
+.fic-grupo.fic-sub > .fic-pasta { background: var(--papel); }
 .fic-pasta {
   display: flex; align-items: center; gap: 8px;
   background: var(--marca-clara); border: 1px solid var(--linha);
@@ -406,7 +420,12 @@ body.so-leitura .citacao .acoes { display: none !important; }
 }
 .fic-pasta b { font-size: 14px; }
 .fic-pasta small { color: var(--tinta-fraca); font-size: 12px; }
-.fic-grupo .fic-item { margin-left: 14px; }
+/* as citações ficam um degrau à frente da pasta a que pertencem */
+.fic-grupo .fic-item { margin-left: 20px; }
+
+/* ------------------------------------------------------- escolha de tema */
+.tema-escolha { display: flex; gap: 6px; }
+.tema-escolha .btn { flex: 1; padding: 9px 4px; font-size: 13px; }
 
 /* ------------------------------------------------------------- subpastas */
 #obra-subpastas { margin: 4px 0 12px; }
@@ -415,32 +434,36 @@ body.so-leitura .citacao .acoes { display: none !important; }
   font-size: 15px; margin-bottom: 8px;
 }
 .caminho .espaco { flex: 1; }
-/* Uma subpasta por linha, como uma lista de pastas de verdade. */
-.subpastas { display: flex; flex-direction: column; gap: 2px; align-items: stretch; }
-.subpastas .cat.nova { align-self: flex-start; margin-top: 6px; }
-.sub {
+/* Uma subpasta por linha, como uma lista de pastas de verdade.
+   ATENÇÃO: estas regras são presas ao #obra-subpastas de propósito. A classe
+   `.sub` solta já colidiu uma vez com o `.fic-grupo.sub` do fichamento, e o
+   `display:flex` daqui jogou as citações de lá para o lado. Nome curto em
+   regra global é armadilha. */
+#obra-subpastas .subpastas { display: flex; flex-direction: column; gap: 2px; align-items: stretch; }
+#obra-subpastas .subpastas .cat.nova { align-self: flex-start; margin-top: 6px; }
+#obra-subpastas .sub {
   display: flex; align-items: center; gap: 4px;
   border: 1px solid transparent; border-radius: 8px; padding: 4px 8px;
 }
-.sub:hover { background: var(--marca-clara); border-color: var(--linha); }
-.sub.ativa { background: var(--marca-clara); border-color: var(--marca); }
+#obra-subpastas .sub:hover { background: var(--marca-clara); border-color: var(--linha); }
+#obra-subpastas .sub.ativa { background: var(--marca-clara); border-color: var(--marca); }
 .sub-icone { font-size: 15px; line-height: 1; }
 /* Editar e excluir ficam logo depois do ícone, apagados de propósito: são
    ações raras ao lado de "abrir a pasta", que é o que se faz o tempo todo. */
-.sub .acao {
+#obra-subpastas .acao {
   border: 0; background: transparent; color: var(--tinta-fraca);
   cursor: pointer; font-size: 12px; line-height: 1; padding: 4px 3px;
   opacity: .45; font-family: inherit;
 }
-.sub .acao:hover { opacity: 1; color: var(--marca); }
-.sub .acao:focus-visible { opacity: 1; outline: 2px solid var(--marca); border-radius: 4px; }
+#obra-subpastas .acao:hover { opacity: 1; color: var(--marca); }
+#obra-subpastas .acao:focus-visible { opacity: 1; outline: 2px solid var(--marca); border-radius: 4px; }
 .sub-nome {
   flex: 1; text-align: left;
   border: 0; background: transparent; color: var(--tinta); cursor: pointer;
   font-size: 15px; padding: 4px 6px; font-family: inherit;
 }
-.sub.ativa .sub-nome { font-weight: 600; }
-.sub .conta { opacity: .6; font-size: 12px; margin-left: 4px; }
+#obra-subpastas .sub.ativa .sub-nome { font-weight: 600; }
+#obra-subpastas .sub .conta { opacity: .6; font-size: 12px; margin-left: 4px; }
 
 /* --------------------------------------------------- seleção de citações */
 .citacao .marca-cit {
@@ -448,6 +471,4 @@ body.so-leitura .citacao .acoes { display: none !important; }
 }
 .citacao.marcado { outline: 2px solid var(--marca); }
 
-/* subpasta recuada dentro do fichamento */
-.fic-grupo.sub { margin-left: 16px; }
-.fic-grupo.sub .fic-pasta { background: var(--papel); }
+

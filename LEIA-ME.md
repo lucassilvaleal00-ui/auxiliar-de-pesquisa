@@ -36,11 +36,12 @@ Repositório público no GitHub → Settings → Pages → main / (root).
     js/referencias.js 5 formatos × 6 tipos de obra
     js/api.js        Google Books + Open Library
     js/auth.js       login e licença (Supabase)
+    js/fichamento.js gera o PDF do fichamento (modelo do professor)
     js/config-app.js as duas chaves do Supabase (você preenche)
     js/app.js        telas e comportamento
     painel/          painel de usuários (só administrador)
     supabase/        schema.sql + Edge Function admin (colar no Supabase)
-    vendor/          Dexie 4.4.5 (local, para funcionar offline)
+    vendor/          Dexie 4.4.5 e jsPDF 2.5.2 (locais, para funcionar offline)
     teste/           testes automáticos (Playwright)
 
 ## Testes
@@ -48,4 +49,5 @@ Repositório público no GitHub → Settings → Pages → main / (root).
     npm install playwright
     node teste/teste.js       # 32 verificações na interface
     node teste/teste-api.js   # 23 verificações na busca automática
-    node teste/teste-login.js # 31 verificações em login, licença e painel
+    node teste/teste-login.js # 41 verificações em login, licença e painel
+    node teste/teste-fichamento.js # 23 verificações no PDF do fichamento

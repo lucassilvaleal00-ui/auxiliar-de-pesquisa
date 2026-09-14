@@ -8,7 +8,7 @@
    >>> velhos que guardou, e o cliente não vê a sua correção.
    ========================================================================== */
 
-const VERSAO = 'v18';
+const VERSAO = 'v19';
 const CACHE = `auxiliar-pesquisa-${VERSAO}`;
 
 // Tudo o que o app precisa para abrir sem internet.
