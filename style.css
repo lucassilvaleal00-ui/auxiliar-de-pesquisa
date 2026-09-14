@@ -9,8 +9,9 @@
   --tinta: #1a1c1f;
   --tinta-fraca: #5d6470;
   --linha: #d9dde3;
-  --marca: #1b4f72;
-  --marca-clara: #e8f0f7;
+  --marca: #00628f;
+  --marca-clara: #e6f2f9;
+  --marca-tinta: #ffffff;
   --perigo: #b3261e;
   --alerta: #8f5a00;
   --alerta-fundo: #fdf3e3;
@@ -21,14 +22,16 @@
 @media (prefers-color-scheme: dark) {
   :root:not([data-tema="claro"]) {
     --fundo: #14171a; --papel: #1e2227; --tinta: #e8eaed; --tinta-fraca: #a3abb6;
-    --linha: #333a42; --marca: #6aa9dd; --marca-clara: #1c2c3a;
+    --linha: #333a42; --marca: #74c4e9; --marca-clara: #16293a;
+    --marca-tinta: #0d1b26;
     --perigo: #f2b8b5; --alerta: #f0c27a; --alerta-fundo: #322a19;
     --sombra: 0 1px 3px rgba(0,0,0,.5);
   }
 }
 :root[data-tema="escuro"] {
   --fundo: #14171a; --papel: #1e2227; --tinta: #e8eaed; --tinta-fraca: #a3abb6;
-  --linha: #333a42; --marca: #6aa9dd; --marca-clara: #1c2c3a;
+  --linha: #333a42; --marca: #74c4e9; --marca-clara: #16293a;
+    --marca-tinta: #0d1b26;
   --perigo: #f2b8b5; --alerta: #f0c27a; --alerta-fundo: #322a19;
   --sombra: 0 1px 3px rgba(0,0,0,.5);
 }
@@ -88,7 +91,7 @@ h2, h3 { margin: 0 0 8px; }
   cursor: pointer; white-space: nowrap;
 }
 .cat:hover { border-color: var(--marca); }
-.cat.ativa { background: var(--marca); color: #fff; border-color: var(--marca); }
+.cat.ativa { background: var(--marca); color: var(--marca-tinta); border-color: var(--marca); }
 .cat.nova { border-style: dashed; color: var(--marca); font-weight: 600; }
 .cat .conta { opacity: .65; font-size: 12px; margin-left: 4px; }
 
@@ -157,7 +160,7 @@ h2, h3 { margin: 0 0 8px; }
   font-family: inherit;
 }
 .btn:hover { background: var(--marca-clara); }
-.btn.primario { background: var(--marca); color: #fff; border-color: var(--marca); }
+.btn.primario { background: var(--marca); color: var(--marca-tinta); border-color: var(--marca); }
 .btn.primario:hover { filter: brightness(1.1); }
 .btn.perigo { color: var(--perigo); border-color: var(--perigo); }
 .btn.pequeno { padding: 6px 10px; font-size: 13px; }
@@ -349,7 +352,7 @@ body.so-leitura .citacao .acoes { display: none !important; }
    referências e em cor diferente — foi o pedido: na hora de escrever, o que
    se cola primeiro é a frase.                                            */
 .citacao-bloco { border-color: var(--marca); background: var(--marca-clara); }
-.citacao-bloco .ref-topo { background: var(--marca); color: #fff; }
+.citacao-bloco .ref-topo { background: var(--marca); color: var(--marca-tinta); }
 .citacao-bloco .ref-topo .btn { border-color: rgba(255,255,255,.5); }
 .citacao-bloco .ref-texto { color: var(--tinta); font-size: 15px; }
 .citacao-bloco .ref-rodape {
@@ -434,6 +437,17 @@ body.so-leitura .citacao .acoes { display: none !important; }
   font-size: 15px; margin-bottom: 8px;
 }
 .caminho .espaco { flex: 1; }
+/* O nome da pasta de cima é o botão de voltar. Parece texto até o mouse
+   chegar perto — quem já entendeu aperta, quem não entendeu não estranha. */
+.caminho .migalha {
+  border: 1px solid transparent; background: transparent; color: var(--tinta);
+  font: inherit; font-weight: 700; cursor: pointer;
+  padding: 3px 7px; border-radius: 7px;
+}
+.caminho .migalha:hover { background: var(--marca-clara); border-color: var(--linha); color: var(--marca); }
+.caminho .migalha:focus-visible { outline: 2px solid var(--marca); outline-offset: 1px; }
+.caminho .seta { color: var(--tinta-fraca); }
+.caminho .migalha-aqui { padding: 3px 0; }
 /* Uma subpasta por linha, como uma lista de pastas de verdade.
    ATENÇÃO: estas regras são presas ao #obra-subpastas de propósito. A classe
    `.sub` solta já colidiu uma vez com o `.fic-grupo.sub` do fichamento, e o
