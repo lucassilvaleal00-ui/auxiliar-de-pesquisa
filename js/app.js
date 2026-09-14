@@ -12,7 +12,7 @@ const R = window.Referencias;
 
 /* Precisa ser igual ao VERSAO do sw.js. Aparece em Configurações: é assim que
    se confere, num aparelho qualquer, se a última publicação já chegou. */
-const VERSAO_APP = 'v20';
+const VERSAO_APP = 'v21';
 
 /* --------------------------------------------------------------- atalhos */
 
@@ -1679,7 +1679,16 @@ async function janelaFichamento(livro) {
        Dá para gerar assim mesmo, mas esse campo aparece no cabeçalho do fichamento.
      </div>` : ''}
 
-    <label class="rot">Modelo</label>
+    <label class="rot">Anexar página(s) escaneada(s)</label>
+    <label class="btn" style="width:100%;display:block;text-align:center;cursor:pointer">
+      📎 Escolher print, foto ou PDF
+      <input type="file" id="fic-anexos" accept="image/*,application/pdf" multiple hidden>
+    </label>
+    <div id="fic-anexos-lista"></div>
+    <p class="dica" id="fic-dica-anexos">Elas entram como as <b>primeiras páginas</b> do
+      fichamento e a contagem já começa nelas, como no modelo do professor.</p>
+
+    <label class="rot" style="margin-top:10px">Modelo</label>
     <select class="campo" id="fic-modelo">
       <option value="turabian">Turabian — com notas de rodapé</option>
       <option value="abnt">ABNT — com a chamada no próprio texto</option>
@@ -1777,6 +1786,69 @@ async function janelaFichamento(livro) {
   };
   $('[data-cancela-fic]').onclick = fecharJanela;
 
+  /* ------------------------------------------- as páginas escaneadas ---
+     Ficam numa lista própria, e não no <input type="file">, porque o input
+     não deixa remover um arquivo nem trocar a ordem — e a ordem aqui é o que
+     decide a ordem das páginas no PDF. Escolher de novo ACRESCENTA à lista,
+     em vez de substituir: quem fotografou três páginas dificilmente consegue
+     mandar as três de uma vez no celular. */
+  let anexos = [];
+
+  // Um print de tela tem 300 KB e uma foto de celular tem 4 MB: mostrar tudo
+  // em MB faria o print virar "0,0 MB", que não informa nada.
+  const pesoDoArquivo = n => n >= 1048576
+    ? (n / 1048576).toFixed(1).replace('.', ',') + ' MB'
+    : Math.max(1, Math.round(n / 1024)) + ' KB';
+
+  const desenharAnexos = () => {
+    const cx = $('#fic-anexos-lista');
+    if (!anexos.length) { cx.innerHTML = ''; return; }
+    cx.innerHTML = anexos.map((a, i) => `
+      <div class="anexo">
+        <span class="anexo-n">${i + 1}</span>
+        <span class="anexo-nome" title="${esc(a.name)}">${esc(a.name)}</span>
+        <span class="anexo-peso">${pesoDoArquivo(a.size)}</span>
+        <button class="acao" data-sobe="${i}" title="Subir" ${i === 0 ? 'disabled' : ''}>↑</button>
+        <button class="acao" data-desce="${i}" title="Descer" ${i === anexos.length - 1 ? 'disabled' : ''}>↓</button>
+        <button class="acao" data-tira="${i}" title="Tirar da lista">✕</button>
+      </div>`).join('');
+    cx.querySelectorAll('[data-sobe]').forEach(b => b.onclick = () => {
+      const i = +b.dataset.sobe;
+      [anexos[i - 1], anexos[i]] = [anexos[i], anexos[i - 1]];
+      desenharAnexos();
+    });
+    cx.querySelectorAll('[data-desce]').forEach(b => b.onclick = () => {
+      const i = +b.dataset.desce;
+      [anexos[i + 1], anexos[i]] = [anexos[i], anexos[i + 1]];
+      desenharAnexos();
+    });
+    cx.querySelectorAll('[data-tira]').forEach(b => b.onclick = () => {
+      anexos.splice(+b.dataset.tira, 1);
+      desenharAnexos(); dicaAnexos();
+    });
+    dicaAnexos();
+  };
+
+  const dicaAnexos = () => {
+    const d = $('#fic-dica-anexos');
+    if (!anexos.length) {
+      d.innerHTML = 'Elas entram como as <b>primeiras páginas</b> do fichamento e a ' +
+        'contagem já começa nelas, como no modelo do professor.';
+    } else if ($('#fic-formato').value === 'docx') {
+      d.innerHTML = '<b>Atenção:</b> as páginas escaneadas entram só no PDF. ' +
+        'Escolhendo Word, o fichamento sai sem elas.';
+    } else {
+      d.innerHTML = `${anexos.length} arquivo(s) na ordem acima. Eles viram as primeiras ` +
+        'páginas do PDF e o fichamento continua a contagem depois.';
+    }
+  };
+
+  $('#fic-anexos').onchange = e => {
+    anexos = anexos.concat(Array.from(e.target.files || []));
+    e.target.value = '';                    // permite escolher o mesmo arquivo de novo
+    desenharAnexos();
+  };
+
   $('#fic-formato').onchange = e => {
     const docx = e.target.value === 'docx';
     $('[data-gerar-fic]').textContent = docx ? 'Gerar Word' : 'Gerar PDF';
@@ -1785,6 +1857,7 @@ async function janelaFichamento(livro) {
         'são notas de verdade: numeram sozinhas e continuam certas se você acrescentar ' +
         'um parágrafo antes.'
       : 'O PDF sai exatamente como você vê aqui, e ninguém desconfigura sem querer.';
+    dicaAnexos();
   };
 
   $('[data-gerar-fic]').onclick = async function () {
@@ -1802,12 +1875,26 @@ async function janelaFichamento(livro) {
       if (formato === 'docx') {
         const { blob, nome } = window.Word.gerar(livro, escolhidas, opcoes);
         baixarBlob(blob, nome);
-      } else {
+      } else if (!anexos.length) {
         const { doc, nome } = window.Fichamento.gerar(livro, escolhidas, opcoes);
         doc.save(nome);
+      } else {
+        // Com anexos a montagem é em três tempos: (1) contar as páginas
+        // escaneadas, porque é esse número que diz onde o fichamento começa a
+        // contar; (2) gerar o fichamento já com a numeração deslocada; (3)
+        // colar tudo num arquivo só.
+        this.textContent = 'Lendo os anexos…';
+        const quantas = await window.Anexos.contarPaginas(anexos);
+        this.textContent = 'Montando…';
+        opcoes.paginaInicial = quantas + 1;
+        const { doc, nome } = window.Fichamento.gerar(livro, escolhidas, opcoes);
+        const juntos = await window.Anexos.juntar(anexos, doc.output('arraybuffer'));
+        baixarBlob(new Blob([juntos], { type: 'application/pdf' }), nome);
       }
       fecharJanela();
-      aviso(`Fichamento gerado com ${escolhidas.length} citação(ões).`, 4000);
+      aviso(anexos.length && formato !== 'docx'
+        ? `Fichamento gerado com ${escolhidas.length} citação(ões), depois das páginas escaneadas.`
+        : `Fichamento gerado com ${escolhidas.length} citação(ões).`, 4000);
     } catch (e) {
       console.error(e);
       aviso(`Não consegui montar o ${formato === 'docx' ? 'Word' : 'PDF'}: ` + e.message, 6000);

@@ -120,7 +120,9 @@ function gerar(livro, citacoes, opcoes = {}) {
   const doc = new jsPDF({ unit: 'mm', format: 'a4' });
 
   let y = M.topo;
-  let pagina = 1;
+  // Quando há páginas escaneadas na frente, o fichamento não começa no 1: ele
+  // continua a contagem de onde os anexos pararam, como no modelo do professor.
+  let pagina = Math.max(1, Number(opcoes.paginaInicial) || 1);
   let notasDaPagina = [];      // notas ainda por desenhar no pé desta página
   let numeroNota = 0;
 
