@@ -216,8 +216,7 @@ function gerar(livro, citacoes, opcoes = {}) {
       celula(COLUNAS[0], paragrafo(corridas(puro(
         c.tipo === 'direta' ? 'Citação direta' : 'Citação indireta')), { depois: 0 })) +
       celula(COLUNAS[1], paragrafo(corridas(puro(c.assunto || c.capitulo || '')), { depois: 0 })) +
-      // A terceira coluna — o texto da citação — sai centralizada.
-      celula(COLUNAS[2], paragrafo(corridas(info) + marca, { depois: 0, jc: 'center' })) +
+      celula(COLUNAS[2], paragrafo(corridas(info) + marca, { depois: 0 })) +
       '</w:tr>');
   }
 

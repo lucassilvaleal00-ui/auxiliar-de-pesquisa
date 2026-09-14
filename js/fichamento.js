@@ -98,15 +98,6 @@ function quebrar(doc, partes, largura, tam) {
   return linhas;
 }
 
-/** Largura da linha, desprezando o espaço que sobra no fim dela. */
-function larguraLinha(linha) {
-  let fim = linha.length;
-  while (fim > 0 && !/\S/.test(linha[fim - 1].t)) fim--;
-  let w = 0;
-  for (let i = 0; i < fim; i++) w += linha[i].w;
-  return w;
-}
-
 function desenharLinha(doc, linha, x, y, tam) {
   let cursor = x;
   for (const f of linha) {
@@ -278,11 +269,8 @@ function gerar(livro, citacoes, opcoes = {}) {
     celulas.forEach((linhas, i) => {
       if (i > 0) doc.line(x, y, x, y + altura);
       let yy = y + PAD + mm(CORPO) * 0.85;
-      const util = COL[i] - PAD * 2;
       for (const linha of linhas) {
-        // A terceira coluna — o texto da citação — sai centralizada.
-        const recuo = (i === 2) ? Math.max(0, (util - larguraLinha(linha)) / 2) : 0;
-        desenharLinha(doc, linha, x + PAD + recuo, yy, CORPO);
+        desenharLinha(doc, linha, x + PAD, yy, CORPO);
         yy += alturaLinha(CORPO);
       }
       x += COL[i];

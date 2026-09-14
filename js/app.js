@@ -12,7 +12,7 @@ const R = window.Referencias;
 
 /* Precisa ser igual ao VERSAO do sw.js. Aparece em Configurações: é assim que
    se confere, num aparelho qualquer, se a última publicação já chegou. */
-const VERSAO_APP = 'v17';
+const VERSAO_APP = 'v18';
 
 /* --------------------------------------------------------------- atalhos */
 
@@ -867,7 +867,6 @@ async function telaObra(id, semHistorico = false) {
           <button class="btn primario" data-nova-citacao>+ Nova citação</button>
           <button class="btn" data-editar-obra>Editar obra</button>
           <button class="btn" data-ref-obra>Ver referências</button>
-          <button class="btn" data-selecionar-cit>☑ Selecionar citações</button>
           <button class="btn" data-fichamento>Gerar fichamento</button>
           <button class="btn perigo" data-excluir-obra>Excluir</button>
         </div>
@@ -877,7 +876,6 @@ async function telaObra(id, semHistorico = false) {
   $('#obra-cabecalho').querySelector('[data-nova-citacao]').onclick = () => formCitacao(l);
   $('#obra-cabecalho').querySelector('[data-editar-obra]').onclick = () => formObra(l);
   $('#obra-cabecalho').querySelector('[data-ref-obra]').onclick = () => janelaReferencias(l, {});
-  $('#obra-cabecalho').querySelector('[data-selecionar-cit]').onclick = entrarSelecaoCit;
   $('#obra-cabecalho').querySelector('[data-fichamento]').onclick = () => janelaFichamento(l);
   $('#obra-cabecalho').querySelector('[data-excluir-obra]').onclick = async () => {
     const n = await Citacoes.contar(l.id);
@@ -970,13 +968,17 @@ async function desenharSubpastas() {
   for (const f of filhas) contas[f.id] = await Pastas.contarDiretas(f.id);
   const naMestra = await Pastas.contarDiretas(daMestra);
 
+  // Uma subpasta por linha. Os dois botões ficam logo depois do ícone, na
+  // esquerda, e bem apagados: são ações raras perto de "abrir a pasta", que é
+  // o que se faz o tempo todo — não devem disputar a atenção com o nome.
   const linhaSub = f => `
     <div class="sub ${estado.pasta_id === f.id ? 'ativa' : ''}">
+      <span class="sub-icone">📁</span>
+      <button class="acao" data-editar-sub="${esc(f.id)}" title="Renomear" aria-label="Renomear ${esc(f.titulo)}">✎</button>
+      <button class="acao" data-excluir-sub="${esc(f.id)}" title="Excluir" aria-label="Excluir ${esc(f.titulo)}">🗑</button>
       <button class="sub-nome" data-abrir-sub="${esc(f.id)}">
-        📁 ${esc(f.titulo)} <span class="conta">${contas[f.id] ?? 0}</span>
+        ${esc(f.titulo)} <span class="conta">${contas[f.id] ?? 0}</span>
       </button>
-      <button class="mini" data-editar-sub="${esc(f.id)}" title="Renomear">✎</button>
-      <button class="mini" data-excluir-sub="${esc(f.id)}" title="Excluir">🗑</button>
     </div>`;
 
   alvo.innerHTML = `
@@ -1112,13 +1114,6 @@ async function excluirPasta(id) {
    com o que está marcado.
 --------------------------------------------------------------------------*/
 
-function entrarSelecaoCit() {
-  if (!podeEditar()) return avisoLeitura();
-  estado.modoSelCit = true;
-  estado.selCit.clear();
-  desenharCitacoes();
-}
-
 function sairSelecaoCit() {
   if (!estado.modoSelCit && !estado.selCit.size) return;
   estado.modoSelCit = false;
@@ -1138,6 +1133,7 @@ function pintarSelecaoCit() {
 $('#sel-cit-sair').onclick = () => { sairSelecaoCit(); desenharCitacoes(); };
 $('#sel-cit-todas').onclick = () => {
   $('#obra-citacoes').querySelectorAll('[data-cit]').forEach(d => estado.selCit.add(d.dataset.cit));
+  estado.modoSelCit = estado.selCit.size > 0;
   desenharCitacoes();
 };
 $('#sel-cit-mover').onclick = () => janelaMoverCitacoes([...estado.selCit]);
@@ -1209,12 +1205,14 @@ async function desenharCitacoes() {
 
   alvo.innerHTML = lista.map(c => `
     <div class="citacao" data-cit="${c.id}">
-      ${estado.modoSelCit ? `<label class="marca-cit">
-           <input type="checkbox" data-marcar="${c.id}" ${estado.selCit.has(c.id) ? 'checked' : ''}>
-         </label>` : `<div class="acoes">
+      <div class="acoes">
+        <input type="checkbox" class="marca-cit" data-marcar="${c.id}"
+               ${estado.selCit.has(c.id) ? 'checked' : ''}
+               title="Selecionar" aria-label="Selecionar esta citação">
         <button class="mini" data-editar title="Editar">✎</button>
+        <button class="mini" data-copiar title="Copiar o texto da citação">⧉</button>
         <button class="mini" data-excluir title="Excluir">🗑</button>
-      </div>`}
+      </div>
       <div class="pag">${c.pagina
         ? esc(c.pagina) + (ehBiblia ? '' : ' <span class="pag-un">pág.</span>')
         : '—'}</div>
@@ -1227,36 +1225,32 @@ async function desenharCitacoes() {
       </div>
     </div>`).join('');
 
-  if (estado.modoSelCit) {
-    alvo.querySelectorAll('[data-cit]').forEach(div => {
-      const id = div.dataset.cit;
-      const caixa = div.querySelector('[data-marcar]');
-      const alternar = () => {
-        if (estado.selCit.has(id)) estado.selCit.delete(id); else estado.selCit.add(id);
-        caixa.checked = estado.selCit.has(id);
-        div.classList.toggle('marcado', caixa.checked);
-        pintarSelecaoCit();
-      };
-      div.classList.toggle('marcado', estado.selCit.has(id));
-      // O cartão inteiro é o alvo do clique: mirar numa caixinha de 16 px no
-      // celular é pedir demais de quem está trabalhando.
-      div.onclick = e => { if (e.target !== caixa) alternar(); };
-      caixa.onchange = () => {
-        estado.selCit.has(id) ? estado.selCit.delete(id) : estado.selCit.add(id);
-        div.classList.toggle('marcado', caixa.checked);
-        pintarSelecaoCit();
-      };
-    });
-    pintarSelecaoCit();
-    return;
-  }
-
   alvo.querySelectorAll('[data-cit]').forEach(div => {
     const id = div.dataset.cit;
+    const caixa = div.querySelector('[data-marcar]');
+
+    div.classList.toggle('marcado', estado.selCit.has(id));
+
+    /* A caixinha é a porta de entrada da seleção: marcar a primeira já liga o
+       modo e abre a barra com "marcar todas" e "mover para". Não é preciso
+       avisar antes que se vai selecionar — basta selecionar. */
+    caixa.onclick = e => e.stopPropagation();   // não abre a janela da citação
+    caixa.onchange = () => {
+      if (caixa.checked) estado.selCit.add(id); else estado.selCit.delete(id);
+      div.classList.toggle('marcado', caixa.checked);
+      estado.modoSelCit = estado.selCit.size > 0;
+      pintarSelecaoCit();
+    };
+
     div.querySelector('[data-editar]').onclick = async () => formCitacao(l, await Citacoes.obter(id));
+    div.querySelector('[data-copiar]').onclick = async () => {
+      const c = await Citacoes.obter(id);
+      await copiarTexto(c.texto || '');
+    };
     div.querySelector('[data-excluir]').onclick = async () => {
       if (!await confirmar('Excluir citação', 'Esta citação será apagada. Não tem como desfazer.', 'Excluir')) return;
       await Citacoes.excluir(id);
+      estado.selCit.delete(id);
       await desenharPastas(); desenharCitacoes();
       aviso('Citação excluída.');
     };
@@ -1265,6 +1259,30 @@ async function desenharCitacoes() {
       janelaReferencias(l, c, c);
     };
   });
+  pintarSelecaoCit();
+}
+
+/** Copia texto puro (o da citação). Sem formatação — é o trecho cru. */
+async function copiarTexto(texto) {
+  if (!texto) return aviso('Esta citação está sem texto.');
+  try {
+    await navigator.clipboard.writeText(texto);
+    return aviso('Texto da citação copiado.');
+  } catch {
+    // Reserva para navegador que não libera a área de transferência moderna.
+    try {
+      const area = document.createElement('textarea');
+      area.value = texto;
+      area.style.position = 'fixed'; area.style.opacity = '0';
+      document.body.appendChild(area);
+      area.select();
+      document.execCommand('copy');
+      area.remove();
+      aviso('Texto da citação copiado.');
+    } catch {
+      aviso('Não foi possível copiar neste navegador.');
+    }
+  }
 }
 
 function realce(texto, termo) {
