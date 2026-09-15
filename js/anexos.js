@@ -35,7 +35,8 @@ const RODAPE = 12;                              // altura do número, a partir d
 const CORPO = 12;                               // corpo em pontos, como no fichamento
 const mm2pt = v => v * 72 / 25.4;               // milímetro → ponto (o PDF fala em pontos)
 
-const ROTULO = 'Print ou Xerox da Obra';
+const TITULO = 'Fichamento';               // centralizado no alto da primeira folha
+const ROTULO = 'Print ou Xerox da Obra';   // logo abaixo, na margem esquerda
 
 // Uma foto de celular tem 12 megapixels e viraria um PDF de vários MB por
 // página. 2200px no lado maior dá cerca de 200dpi numa folha A4 — o bastante
@@ -156,6 +157,13 @@ async function juntar(arquivos, pdfFichamento) {
     });
     let teto = caixa.alto;
     if (comRotulo) {
+      // O título vem primeiro, centralizado, como no modelo do professor; o
+      // rótulo da seção fica logo abaixo, encostado na margem esquerda.
+      p.drawText(TITULO, {
+        x: L / 2 - fonteNegrito.widthOfTextAtSize(TITULO, CORPO) / 2,
+        y: teto - CORPO, size: CORPO, font: fonteNegrito
+      });
+      teto -= CORPO * 2.2;
       p.drawText(ROTULO, { x: caixa.x, y: teto - CORPO, size: CORPO, font: fonteNegrito });
       teto -= CORPO * 2.2;
     }
