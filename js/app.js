@@ -12,7 +12,7 @@ const R = window.Referencias;
 
 /* Precisa ser igual ao VERSAO do sw.js. Aparece em Configurações: é assim que
    se confere, num aparelho qualquer, se a última publicação já chegou. */
-const VERSAO_APP = 'v22';
+const VERSAO_APP = 'v23';
 
 /* --------------------------------------------------------------- atalhos */
 
@@ -492,6 +492,12 @@ const CAMPO = {
                     dica: 'Só se for diferente do tipo escolhido — um TCC, por exemplo. Em branco, vale o tipo.' },
   area:           { rot: 'Área (ex.: Teologia)' },
   url:            { rot: 'Endereço na internet (URL)' },
+  // Mesmo campo `url`, outro rótulo — o mesmo truque do `nome_site`. No e-book
+  // esse endereço tem nome próprio nas duas normas, e chamá-lo de "URL" fazia
+  // o usuário não reconhecer o que o professor pede.
+  disponivel_em:  { rot: 'Disponível em (link do e-book)', campo: 'url',
+                    dica: 'O endereço de onde você leu o livro. Na ABNT sai como ' +
+                          '"Disponível em:"; no Turabian, como o link no fim da referência.' },
   doi:            { rot: 'DOI', largura: 'meia' },
   issn:           { rot: 'ISSN', largura: 'meia' },
   isbn:           { rot: 'ISBN', largura: 'meia' },
@@ -512,6 +518,13 @@ const CAMPOS_POR_TIPO = {
   tese:     ['autores', 'colaboradores', 'titulo', 'subtitulo', 'grau', 'area', 'instituicao', 'cidade', 'estado', 'ano', 'url'],
   site:     ['autores', 'colaboradores', 'titulo', 'subtitulo', 'nome_site', 'ano', 'url', 'data_acesso'],
   biblia:   ['titulo', 'versao_biblia', 'tradutores', 'cidade', 'estado', 'editora', 'ano']
+};
+
+// Alguns campos pertencem ao TIPO visível, e não à família. "Livro impresso" e
+// "Livro digital" são a mesma família `livro`, mas só o digital tem de onde ser
+// baixado — e pedir o link de um livro de papel seria confuso.
+const CAMPOS_EXTRA_POR_TIPO = {
+  livro_digital: ['disponivel_em', 'data_acesso']
 };
 
 // Vale para qualquer tipo e alimenta o fichamento.
@@ -621,7 +634,9 @@ function formObra(livro = null, rascunho = null) {
         ${estado.categorias.map(c => `<option value="${c.id}" ${l.categoria_id === c.id ? 'selected' : ''}>${esc(c.titulo)}</option>`).join('')}
       </select>
 
-      ${(CAMPOS_POR_TIPO[familia] || CAMPOS_POR_TIPO.livro).map(n => blocoCampo(n, l, exigidos)).join('')}
+      ${(CAMPOS_POR_TIPO[familia] || CAMPOS_POR_TIPO.livro)
+          .concat(CAMPOS_EXTRA_POR_TIPO[l.tipo] || [])
+          .map(n => blocoCampo(n, l, exigidos)).join('')}
 
       <h3 style="margin-top:18px">Para o fichamento</h3>
       ${CAMPOS_FICHAMENTO.map(n => blocoCampo(n, l, exigidos)).join('')}

@@ -263,6 +263,12 @@
   // guarda livro capítulo:versículo (ex.: João 3:16).
   const refBiblia = (l, o) => (pg(o.pagina) || (o.capitulo || '').trim() || l.titulo || '').trim();
 
+  // Livro lido on-line: as duas normas querem saber de onde. O Turabian 9
+  // (17.1.10) fecha a referência com o endereço; a ABNT NBR 6023 escreve
+  // "Disponível em:" seguido de "Acesso em:". Só sai quando o campo foi
+  // preenchido — e ele só aparece no cadastro do "Livro digital (e-book)".
+  const linkDe = l => (l.url || '').trim();
+
   /* ============================ TURABIAN — NOTA ============================ */
 
   function turabianNota(l, o) {
@@ -280,7 +286,10 @@
         if (trad) partes.push(trad);
         if (ed) partes.push(ed);
         if (vol) partes.push(vol);
-        return pt(`${partes.join(', ')} (${publicacaoTurabian(l)})${p ? ', ' + esc(p) : ''}`);
+        // No e-book o endereço entra depois da página, separado por vírgula:
+        // Autor, Título (Local: Editora, ano), 45, https://…
+        const link = linkDe(l) ? ', ' + esc(linkDe(l)) : '';
+        return pt(`${partes.join(', ')} (${publicacaoTurabian(l)})${p ? ', ' + esc(p) : ''}${link}`);
       }
       case 'capitulo': {
         const orgs = limpar(l.organizadores);
@@ -361,6 +370,7 @@
         if (ed) p.push(pt(ed));
         if ((l.volume || '').trim()) p.push(`Vol. ${esc(l.volume)}.`);
         p.push(pt(publicacaoTurabian(l)));
+        if (linkDe(l)) p.push(pt(esc(linkDe(l))));   // e-book: o endereço fecha a entrada
         return p.join(' ');
       }
       case 'capitulo': {
@@ -420,7 +430,8 @@
         const colabAbnt = colaboradores(l, 'abnt');
         return `${pt(autores ? esc(autores) : falta('autor'))} ${pt(tit)} ` +
                `${colabAbnt ? colabAbnt + ' ' : ''}${trad}` +
-               `${ed ? ed + ' ' : ''}${esc(localAbnt)}: ${editora ? esc(editora) : '[s.n.]'}, ${esc(ano)}.${vol}`;
+               `${ed ? ed + ' ' : ''}${esc(localAbnt)}: ${editora ? esc(editora) : '[s.n.]'}, ` +
+               `${esc(ano)}.${vol}${disp}${acesso}`;   // e-book: "Disponível em:" e "Acesso em:"
       }
       case 'capitulo': {
         const orgs = limpar(l.organizadores);
